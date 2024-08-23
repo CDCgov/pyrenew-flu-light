@@ -2,7 +2,9 @@
 
 ⚠️ This is a work in progress.
 
-_`pyrenew-flu-light` is an instantiation of an [Epidemia](https://imperialcollegelondon.github.io/epidemia/) influenza forecasting model in the [PyRenew](https://github.com/CDCgov/PyRenew)_
+_`pyrenew-flu-light` is an instantiation of an [Epidemia](https://imperialcollegelondon.github.io/epidemia/) influenza forecasting model in [PyRenew](https://github.com/CDCgov/PyRenew)_
+
+
 
 NOTE: Presently, this `pyrenew-flu-light` cannot be installed and used with current NHSN, as its author is validating it on historical influenza data, which is .
 
