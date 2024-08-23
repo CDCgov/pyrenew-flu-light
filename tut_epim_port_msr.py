@@ -3,6 +3,7 @@ Porting `cfa-forecast-renewal-epidemia`
 over to MSR. Validated on NHSN influenza
 data from the 2023-24 season.
 """
+
 import argparse
 import datetime as dt
 import glob
@@ -23,6 +24,7 @@ import numpy as np
 import numpyro
 import numpyro.distributions as dist
 import polars as pl
+import pyrenew.transformation as t
 
 # import rpy2.robjects as ro
 import toml
@@ -30,8 +32,6 @@ from jax.typing import ArrayLike
 from matplotlib import font_manager as fm
 from numpyro import render_model
 from numpyro.infer.reparam import LocScaleReparam
-
-import pyrenew.transformation as t
 from pyrenew.deterministic import DeterministicPMF
 from pyrenew.latent import (
     InfectionInitializationProcess,
