@@ -4,7 +4,15 @@
 
 _`pyrenew-flu-light` is an instantiation of an [Epidemia](https://imperialcollegelondon.github.io/epidemia/) influenza forecasting model in [PyRenew](https://github.com/CDCgov/PyRenew)._
 
-NOTE: Presently, this `pyrenew-flu-light` cannot be installed and used with current NHSN, as its author is validating it on historical influenza data, which is .
+NOTE: Presently, this `pyrenew-flu-light` cannot be installed and used with current NHSN, as its author is validating it on historical influenza data.
+
+Run command typically used:
+
+```
+poetry run python tut_epim_port_msr.py --reporting_date 2024-01-20 --regions NY --historical --forecast
+
+python3 tut_epim_port_msr.py --reporting_date 2024-01-20 --regions NY --historical --forecast
+```
 
 ## ...Contained Within This Repository
 

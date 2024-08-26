@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "pyrenew-flu-light"
+version = "0.0.1"
+description = "An instantiation of an Epidemia influenza forecasting model in PyRenew."
+authors = ["CFA"]
+license = "Apache-2.0"
+readme = "README.md"
+packages = [{include = "pyrenew_flu_light"}]
+
+
+[tool.poetry.dependencies]
+python = "^3.11"
+polars = "^1.5.0"
+numpyro = "^0.15.2"
+arviz = "^0.19.0"
+
+[tool.poetry.group.dev.dependencies]
+rpy2 = "^3.5.16"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
