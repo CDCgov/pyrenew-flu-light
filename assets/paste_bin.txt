@@ -2,6 +2,45 @@
 NOTES
 
 
+
+REMOVE plot and comparison functions for now
+
+# ax.set_title("Posterior Predictive Plot")
+            # ax.set_ylabel("Hospital Admissions")
+            # ax.set_xlabel("Days")
+            # plt.show()
+
+            # prior_p_ss_figures_and_descriptions = plot_sample_variables(
+            #     samples=prior_p_ss,
+            #     variables=["Rts", "latent_infections", "negbinom_rv"],
+            #     observations=obs,
+            #     ylabels=[
+            #         "Basic Reproduction Number",
+            #         "Latent Infections",
+            #         "Hospital Admissions",
+            #     ],
+            #     plot_types=["TRACE", "PPC", "HDI"],
+            #     plot_kwargs={
+            #         "HDI": {"hdi_prob": 0.95, "plot_kwargs": {"ls": "-."}},
+            #         "TRACE": {"var_names": ["Rts", "latent_infections"]},
+            #         "PPC": {"alpha": 0.05, "textsize": 12},
+            #     },
+            # )
+
+            # print(prior_p_ss_figures_and_descriptions)
+
+        # if args.forecasting:
+
+    # prior_p_ss & post_p_ss get their own pdf (markdown first then subprocess)
+    # each variable is plotted out, if possible
+    # arviz diagnostics
+
+
+
+
+
+
+
 seeding ("initialization" in MSR lingo):
 
  no renewal process, no need for a defined R(t)

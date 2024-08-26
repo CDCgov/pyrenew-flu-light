@@ -298,7 +298,7 @@ def ensure_output_directory(args: dict[str, any]):  # numpydoc ignore=GL08
 def assert_historical_data_files_exist(
     reporting_date: str,
 ):  # numpydoc ignore=GL08
-    data_directory = f"./data/{reporting_date}/"
+    data_directory = f"../../data/{reporting_date}/"
     assert os.path.exists(
         data_directory
     ), f"Data directory {data_directory} does not exist."
@@ -1048,22 +1048,22 @@ class CFAEPIM_Model(Model):
         # update: truncated Normal needed here, done
         # "under the hood" in Epidemia, use Beta for the
         # time being.
-        # self.susceptibility_prior = dist.Beta(
-        #     1
-        #     + (
-        #         self.susceptible_fraction_prior_mode
-        #         / self.susceptible_fraction_prior_scale
-        #     ),
-        #     1
-        #     + (1 - self.susceptible_fraction_prior_mode)
-        #     / self.susceptible_fraction_prior_scale,
-        # )
-        # now:
-        self.susceptibility_prior = dist.TruncatedNormal(
-            self.susceptible_fraction_prior_mode,
-            self.susceptible_fraction_prior_scale,
-            low=0.0,
+        self.susceptibility_prior = dist.Beta(
+            1
+            + (
+                self.susceptible_fraction_prior_mode
+                / self.susceptible_fraction_prior_scale
+            ),
+            1
+            + (1 - self.susceptible_fraction_prior_mode)
+            / self.susceptible_fraction_prior_scale,
         )
+        # now:
+        # self.susceptibility_prior = dist.TruncatedNormal(
+        #     self.susceptible_fraction_prior_mode,
+        #     self.susceptible_fraction_prior_scale,
+        #     low=0.0,
+        # )
 
         # infections component
         self.infections = CFAEPIM_Infections(
@@ -1698,46 +1698,6 @@ def plot_hdi_arviz_for(idata, forecast_days):  # numpydoc ignore=GL08
     plt.show()
 
 
-# def quantilize_forecasts(
-#     samples_dict,
-#     state_abbr,
-#     start_date,
-#     end_date,
-#     fitting_data,
-#     output_path,
-#     reference_date,
-# ):  # numpydoc ignore=GL08
-#     pandas2ri.activate()
-#     forecasttools = importr("forecasttools")
-#     # dplyr = importr("dplyr")
-#     # tidyr = importr("tidyr")
-#     # cli = importr("cli")
-
-#     posterior_samples = pl.DataFrame(samples_dict)
-#     posterior_samples_pd = posterior_samples.to_pandas()
-#     r_posterior_samples = pandas2ri.py2rpy(posterior_samples_pd)
-
-#     fitting_data_pd = fitting_data.to_pandas()
-#     r_fitting_data = pandas2ri.py2rpy(fitting_data_pd)
-
-#     results_list = ro.ListVector({state_abbr: r_posterior_samples})
-
-#     horizons = ro.IntVector([-1, 0, 1, 2, 3])
-
-#     forecast_output = forecasttools.forecast_and_output_flusight(
-#         data=r_fitting_data,
-#         results=results_list,
-#         output_path=output_path,
-#         reference_date=reference_date,
-#         horizons=horizons,
-#         seed=62352,
-#     )
-
-#     forecast_output_pd = pandas2ri.rpy2py(forecast_output)
-#     forecast_output_pl = pl.from_pandas(forecast_output_pd)
-#     print(forecast_output_pl)
-
-
 def main(args):  # numpydoc ignore=GL08
     """
     The `cfaepim` model required a configuration
@@ -1784,7 +1744,7 @@ def main(args):  # numpydoc ignore=GL08
 
         # load historical configuration file (modified from cfaepim)
         config = load_config(
-            config_path=f"./config/params_{args.reporting_date}_historical.toml"
+            config_path=f"../../config/params_{args.reporting_date}_historical.toml"
         )
         logging.info("Configuration (historical) loaded.")
 
@@ -1857,7 +1817,7 @@ def main(args):  # numpydoc ignore=GL08
                 constant_data={"obs": obs},
             )
             print(dir(idata))
-            # plot_lm_arviz_fit(idata)
+            plot_lm_arviz_fit(idata)
             plot_hdi_arviz_for(idata, forecast_days)
 
             # save to folder for jurisdiction,
@@ -1868,36 +1828,6 @@ def main(args):  # numpydoc ignore=GL08
             #     kind="diagnostics",
             # )
             # print(diagnostic_stats_summary.loc["negbinom_rv"])
-
-            # ax.set_title("Posterior Predictive Plot")
-            # ax.set_ylabel("Hospital Admissions")
-            # ax.set_xlabel("Days")
-            # plt.show()
-
-            # prior_p_ss_figures_and_descriptions = plot_sample_variables(
-            #     samples=prior_p_ss,
-            #     variables=["Rts", "latent_infections", "negbinom_rv"],
-            #     observations=obs,
-            #     ylabels=[
-            #         "Basic Reproduction Number",
-            #         "Latent Infections",
-            #         "Hospital Admissions",
-            #     ],
-            #     plot_types=["TRACE", "PPC", "HDI"],
-            #     plot_kwargs={
-            #         "HDI": {"hdi_prob": 0.95, "plot_kwargs": {"ls": "-."}},
-            #         "TRACE": {"var_names": ["Rts", "latent_infections"]},
-            #         "PPC": {"alpha": 0.05, "textsize": 12},
-            #     },
-            # )
-
-            # print(prior_p_ss_figures_and_descriptions)
-
-        # if args.forecasting:
-
-    # prior_p_ss & post_p_ss get their own pdf (markdown first then subprocess)
-    # each variable is plotted out, if possible
-    # arviz diagnostics
 
 
 if __name__ == "__main__":
@@ -1941,28 +1871,3 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     main(args)
-
-# TODO
-# argparse
-#   turn off reports
-# report(s) generation
-# plotting generation
-# generalized plotting
-# forecasttools formatting
-# MCMC utils (numpyro)
-# issues x 3 (plotting, inv(), infections docs.)
-# tests
-# Save MCMC + Samples
-# Save to Image as Metadata
-# forecast scoring & interpretation
-#   in reports
-#   probabilistic statements on what to expect
-#   relative to historical (several weeks prior + last year)
-# evaluate configuration file
-# tutorial on usage
-# writing again
-# notes about what each function must know
-# plot objects include: latent infections, observed hospital
-# admissions, Rt; plot types includes: dist., density, posterior,
-# density comparison, pair plot, posterior predictive check plot,
-# HDI plot,
