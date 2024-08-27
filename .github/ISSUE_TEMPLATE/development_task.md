@@ -1,9 +1,9 @@
 ---
-name: Multisignal Renewal Dev Task Template
-about: A template for writing specs following Multisignal Renewal project standards
-title: ''
+name: PyRenew Developer Task Template
+about: A template for writing specifications following Pyrenew project standards.
+title: ""
 labels: ["development task"]
-assignees: ''
+assignees: ""
 ---
 
 This template should be used as an outline. It may not be necessary to fill out every section. Delete this block of text and fill in anything in brackets.
