@@ -38,7 +38,38 @@ REMOVE plot and comparison functions for now
 
 
 
+seed = 54321
+seed = 1
+seed = 213123421 STUCK!
 
+
+213123421 works with
+
+find_heuristic_step_size: True
+
+seed = 2412
+seed = 32452342
+seed = 1234
+
+All seem to work
+
+Now AL on 2024-03-30
+
+seed = 54321
+seed = 12312421
+
+
+            # save to folder for jurisdiction,
+
+            # idata = az.from_numpyro(model.mcmc)
+            # diagnostic_stats_summary = az.summary(
+            #     idata.posterior,
+            #     kind="diagnostics",
+            # )
+            # print(diagnostic_stats_summary.loc["negbinom_rv"])
+
+
+DHM: uniform is good for checking if you are missing constraint that should be present
 
 
 seeding ("initialization" in MSR lingo):

@@ -25,8 +25,6 @@ import numpyro
 import numpyro.distributions as dist
 import polars as pl
 import pyrenew.transformation as t
-
-# import rpy2.robjects as ro
 import toml
 from jax.typing import ArrayLike
 from matplotlib import font_manager as fm
@@ -48,9 +46,6 @@ from pyrenew.metaclass import (
 from pyrenew.observation import NegativeBinomialObservation
 from pyrenew.process import SimpleRandomWalkProcess
 from pyrenew.regression import GLMPrediction
-
-# from rpy2.robjects import pandas2ri
-# from rpy2.robjects.packages import importr
 
 FONT_PATH = "texgyreschola-regular.otf"
 if os.path.exists(FONT_PATH):
@@ -1495,6 +1490,7 @@ def run_single_jurisdiction(
 
     # run the CFAEPIM model
     cfaepim_MSR_fit.run(
+        rng_key=jax.random.key(config["seed"]),
         n_steps=steps_excluding_forecast,
         data_observed_hosp_admissions=observed_hosp_admissions[
             :steps_excluding_forecast
@@ -1504,6 +1500,8 @@ def run_single_jurisdiction(
         nuts_args={
             "target_accept_prob": config["adapt_delta"],
             "max_tree_depth": config["max_treedepth"],
+            "init_strategy": numpyro.infer.init_to_sample,
+            "find_heuristic_step_size": True,
         },
         mcmc_args={
             "num_chains": config["n_chains"],
@@ -1563,11 +1561,19 @@ def run_single_jurisdiction(
         logging.info(
             f"{jurisdiction}: Posterior predictive forecasts complete."
         )
+
+        return (
+            cfaepim_MSR_for,
+            observed_hosp_admissions,
+            prior_predictive_sim_samples,
+            posterior_predictive_sim_samples,
+            posterior_predictive_for_samples,
+        )
     else:
         posterior_predictive_for_samples = None
 
     return (
-        cfaepim_MSR_for,
+        cfaepim_MSR_fit,
         observed_hosp_admissions,
         prior_predictive_sim_samples,
         posterior_predictive_sim_samples,
@@ -1690,9 +1696,7 @@ def plot_hdi_arviz_for(idata, forecast_days):  # numpydoc ignore=GL08
         color="black",
     )
     axes.legend()
-    axes.set_title(
-        "Posterior Predictive Admissions, including a forecast", fontsize=10
-    )
+    axes.set_title("Posterior Predictive Admissions, w/ Forecast", fontsize=10)
     axes.set_xlabel("Time", fontsize=10)
     axes.set_ylabel("Hospital Admissions", fontsize=10)
     plt.show()
@@ -1722,6 +1726,7 @@ def main(args):  # numpydoc ignore=GL08
     values in a proper range. Testing also ensures that
     each part of the `cfaepim` model works as desired.
     python3 tut_epim_port_msr.py --reporting_date 2024-01-20 --regions NY --historical --forecast
+    python3 tut_epim_port_msr.py --reporting_date 2024-03-30 --regions AL --historical --forecast
     """
     logging.info("Starting CFAEPIM")
 
@@ -1743,9 +1748,12 @@ def main(args):  # numpydoc ignore=GL08
         )
 
         # load historical configuration file (modified from cfaepim)
-        config = load_config(
-            config_path=f"../config/params_{args.reporting_date}_historical.toml"
-        )
+        if args.use_c != "":
+            config = load_config(config_path=args.use_c)
+        else:
+            config = load_config(
+                config_path=f"../config/params_{args.reporting_date}_historical.toml"
+            )
         logging.info("Configuration (historical) loaded.")
 
         # load the historical hospitalization data
@@ -1755,9 +1763,9 @@ def main(args):  # numpydoc ignore=GL08
         influenza_hosp_data = load_data(data_path=data_path)
         logging.info("Incidence data (historical) loaded.")
         _, cols = influenza_hosp_data.shape
-        display_data(
-            data=influenza_hosp_data, n_row_count=10, n_col_count=cols
-        )
+        # display_data(
+        #     data=influenza_hosp_data, n_row_count=10, n_col_count=cols
+        # )
 
         # modify date column from str to datetime
         influenza_hosp_data = influenza_hosp_data.with_columns(
@@ -1813,27 +1821,20 @@ def main(args):  # numpydoc ignore=GL08
             idata = az.from_numpyro(
                 posterior=model.mcmc,
                 prior=prior_p_ss,
-                posterior_predictive=post_p_ss,
+                posterior_predictive=post_p_fs,
                 constant_data={"obs": obs},
             )
-            print(dir(idata))
-            plot_lm_arviz_fit(idata)
+            if not args.forecast:
+                plot_lm_arviz_fit(idata)
             plot_hdi_arviz_for(idata, forecast_days)
-
-            # save to folder for jurisdiction,
-
-            # idata = az.from_numpyro(model.mcmc)
-            # diagnostic_stats_summary = az.summary(
-            #     idata.posterior,
-            #     kind="diagnostics",
-            # )
-            # print(diagnostic_stats_summary.loc["negbinom_rv"])
 
 
 if __name__ == "__main__":
     # argparse settings
     # e.g. python3 tut_epim_port_msr.py
     # --reporting_date 2024-01-20 --regions all --historical --forecast
+    # python3 tut_epim_port_msr.py
+    # --reporting_date 2024-01-20 --regions NY --historical --forecast
     parser = argparse.ArgumentParser(
         description="Forecast, simulate, and analyze the CFAEPIM model."
     )
@@ -1868,6 +1869,13 @@ if __name__ == "__main__":
         "--model_info_save",
         action="store_true",
         help="Whether to save information about the model.",
+    )
+    parser.add_argument(
+        "--use_c",
+        type=str,
+        required=False,
+        default="",
+        help="Config path to external config.",
     )
     args = parser.parse_args()
     main(args)
