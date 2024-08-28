@@ -1,3 +1,7 @@
+"""
+The transmission process (Rt) component in pyrenew-flu-light.
+"""
+
 import logging
 
 import jax.numpy as jnp
