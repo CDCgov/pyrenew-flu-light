@@ -24,6 +24,7 @@ import numpy as np
 import numpyro
 import numpyro.distributions as dist
 import polars as pl
+import pyrenew.regression as r
 import pyrenew.transformation as t
 import toml
 from jax.typing import ArrayLike
@@ -36,16 +37,10 @@ from pyrenew.latent import (
     InitializeInfectionsFromVec,
     logistic_susceptibility_adjustment,
 )
-from pyrenew.metaclass import (
-    DistributionalRV,
-    Model,
-    RandomVariable,
-    SampledValue,
-    TransformedRandomVariable,
-)
+from pyrenew.metaclass import Model, RandomVariable, SampledValue
 from pyrenew.observation import NegativeBinomialObservation
-from pyrenew.process import SimpleRandomWalkProcess
-from pyrenew.regression import GLMPrediction
+from pyrenew.process import RandomWalk
+from pyrenew.randomvariable import DistributionalVariable, TransformedVariable
 
 FONT_PATH = "texgyreschola-regular.otf"
 if os.path.exists(FONT_PATH):
@@ -705,12 +700,12 @@ class CFAEPIM_Observation(RandomVariable):
     ):  # numpydoc ignore=GL08
         logging.info("Initializing CFAEPIM_Observation")
 
-        CFAEPIM_Observation.validate(
-            predictors,
-            alpha_prior_dist,
-            coefficient_priors,
-            nb_concentration_prior,
-        )
+        # CFAEPIM_Observation.validate(
+        #     predictors,
+        #     alpha_prior_dist,
+        #     coefficient_priors,
+        #     nb_concentration_prior,
+        # )
 
         self.predictors = predictors
         self.alpha_prior_dist = alpha_prior_dist
@@ -728,9 +723,8 @@ class CFAEPIM_Observation(RandomVariable):
         transformation.
         """
         logging.info("Initializing alpha process")
-        self.alpha_process = GLMPrediction(
+        self.alpha_process = r.GLMPrediction(
             name="alpha_t",
-            fixed_predictor_values=self.predictors,
             intercept_prior=self.alpha_prior_dist,
             coefficient_priors=self.coefficient_priors,
             transform=t.SigmoidTransform().inv,
@@ -745,9 +739,9 @@ class CFAEPIM_Observation(RandomVariable):
         logging.info("Initializing negative binomial process")
         self.nb_observation = NegativeBinomialObservation(
             name="negbinom_rv",
-            concentration_rv=DistributionalRV(
+            concentration_rv=DistributionalVariable(
                 name="nb_concentration",
-                dist=self.nb_concentration_prior,
+                distribution=self.nb_concentration_prior,
             ),
         )
 
@@ -815,8 +809,9 @@ class CFAEPIM_Observation(RandomVariable):
             ascertainment values and the expected
             hospitalizations.
         """
-        alpha_samples = self.alpha_process.sample()["prediction"]
-        alpha_samples = alpha_samples[: infections.shape[0]]
+
+        alpha_samples = self.alpha_process.sample(self.predictors)
+        alpha_samples = alpha_samples[0].value[: infections.shape[0]]
         expected_hosp = (
             alpha_samples
             * jnp.convolve(infections, inf_to_hosp_dist, mode="full")[
@@ -917,24 +912,24 @@ class CFAEPIM_Rt(RandomVariable):  # numpydoc ignore=GL08
             "Wt_rw_sd", dist.HalfNormal(self.gamma_RW_prior_scale)
         )
         # Rt random walk process
-        wt_rv = SimpleRandomWalkProcess(
+        init_rv = DistributionalVariable(
+            name="init_Wt_rv",
+            distribution=self.intercept_RW_prior,
+        )
+        wt_rv = RandomWalk(
             name="Wt",
-            step_rv=DistributionalRV(
+            step_rv=DistributionalVariable(
                 name="rw_step_rv",
-                dist=dist.Normal(0, sd_wt),
+                distribution=dist.Normal(0, sd_wt),
                 reparam=LocScaleReparam(0),
-            ),
-            init_rv=DistributionalRV(
-                name="init_Wt_rv",
-                dist=self.intercept_RW_prior,
             ),
         )
         # transform Rt random walk w/ scaled logit
-        transformed_rt_samples = TransformedRandomVariable(
+        transformed_rt_samples = TransformedVariable(
             name="transformed_rt_rw",
             base_rv=wt_rv,
             transforms=t.ScaledLogitTransform(x_max=self.max_rt).inv,
-        ).sample(n_steps=n_steps, **kwargs)
+        ).sample(n=n_steps, init_vals=init_rv()[0].value)
         # broadcast the Rt samples to daily values
         broadcasted_rt_samples = transformed_rt_samples[0].value[
             self.week_indices
@@ -1027,11 +1022,11 @@ class CFAEPIM_Model(Model):
         # infections: initial infections
         self.I0 = InfectionInitializationProcess(
             name="I0_initialization",
-            I_pre_init_rv=DistributionalRV(
+            I_pre_init_rv=DistributionalVariable(
                 name="I0",
-                dist=dist.Exponential(rate=1 / self.mean_inf_val).expand(
-                    [self.inf_model_seed_days]
-                ),
+                distribution=dist.Exponential(
+                    rate=1 / self.mean_inf_val
+                ).expand([self.inf_model_seed_days]),
             ),
             infection_init_method=InitializeInfectionsFromVec(
                 n_timepoints=self.inf_model_seed_days
