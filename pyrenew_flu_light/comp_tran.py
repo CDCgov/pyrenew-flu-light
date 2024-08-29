@@ -11,12 +11,9 @@ import numpyro.distributions as dist
 import pyrenew.transformation as t
 from jax.typing import ArrayLike
 from numpyro.infer.reparam import LocScaleReparam
-from pyrenew.metaclass import (
-    DistributionalRV,
-    RandomVariable,
-    TransformedRandomVariable,
-)
-from pyrenew.process import SimpleRandomWalkProcess
+from pyrenew.metaclass import RandomVariable
+from pyrenew.process import RandomWalk
+from pyrenew.randomvariable import DistributionalVariable, TransformedVariable
 
 
 class CFAEPIM_Rt(RandomVariable):  # numpydoc ignore=GL08
@@ -108,24 +105,24 @@ class CFAEPIM_Rt(RandomVariable):  # numpydoc ignore=GL08
             "Wt_rw_sd", dist.HalfNormal(self.gamma_RW_prior_scale)
         )
         # Rt random walk process
-        wt_rv = SimpleRandomWalkProcess(
+        init_rv = DistributionalVariable(
+            name="init_Wt_rv",
+            distribution=self.intercept_RW_prior,
+        )
+        wt_rv = RandomWalk(
             name="Wt",
-            step_rv=DistributionalRV(
+            step_rv=DistributionalVariable(
                 name="rw_step_rv",
-                dist=dist.Normal(0, sd_wt),
+                distribution=dist.Normal(0, sd_wt),
                 reparam=LocScaleReparam(0),
-            ),
-            init_rv=DistributionalRV(
-                name="init_Wt_rv",
-                dist=self.intercept_RW_prior,
             ),
         )
         # transform Rt random walk w/ scaled logit
-        transformed_rt_samples = TransformedRandomVariable(
+        transformed_rt_samples = TransformedVariable(
             name="transformed_rt_rw",
             base_rv=wt_rv,
             transforms=t.ScaledLogitTransform(x_max=self.max_rt).inv,
-        ).sample(n_steps=n_steps, **kwargs)
+        ).sample(n=n_steps, init_vals=init_rv()[0].value)
         # broadcast the Rt samples to daily values
         broadcasted_rt_samples = transformed_rt_samples[0].value[
             self.week_indices

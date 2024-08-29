@@ -7,11 +7,12 @@ import logging
 import jax.numpy as jnp
 import numpy as np
 import numpyro.distributions as dist
+import pyrenew.regression as r
 import pyrenew.transformation as t
 from jax.typing import ArrayLike
-from pyrenew.metaclass import DistributionalRV, RandomVariable
+from pyrenew.metaclass import RandomVariable
 from pyrenew.observation import NegativeBinomialObservation
-from pyrenew.regression import GLMPrediction
+from pyrenew.randomvariable import DistributionalVariable
 
 
 class CFAEPIM_Observation(RandomVariable):
@@ -44,12 +45,12 @@ class CFAEPIM_Observation(RandomVariable):
     ):  # numpydoc ignore=GL08
         logging.info("Initializing CFAEPIM_Observation")
 
-        CFAEPIM_Observation.validate(
-            predictors,
-            alpha_prior_dist,
-            coefficient_priors,
-            nb_concentration_prior,
-        )
+        # CFAEPIM_Observation.validate(
+        #     predictors,
+        #     alpha_prior_dist,
+        #     coefficient_priors,
+        #     nb_concentration_prior,
+        # )
 
         self.predictors = predictors
         self.alpha_prior_dist = alpha_prior_dist
@@ -67,9 +68,8 @@ class CFAEPIM_Observation(RandomVariable):
         transformation.
         """
         logging.info("Initializing alpha process")
-        self.alpha_process = GLMPrediction(
+        self.alpha_process = r.GLMPrediction(
             name="alpha_t",
-            fixed_predictor_values=self.predictors,
             intercept_prior=self.alpha_prior_dist,
             coefficient_priors=self.coefficient_priors,
             transform=t.SigmoidTransform().inv,
@@ -84,9 +84,9 @@ class CFAEPIM_Observation(RandomVariable):
         logging.info("Initializing negative binomial process")
         self.nb_observation = NegativeBinomialObservation(
             name="negbinom_rv",
-            concentration_rv=DistributionalRV(
+            concentration_rv=DistributionalVariable(
                 name="nb_concentration",
-                dist=self.nb_concentration_prior,
+                distribution=self.nb_concentration_prior,
             ),
         )
 
@@ -154,8 +154,9 @@ class CFAEPIM_Observation(RandomVariable):
             ascertainment values and the expected
             hospitalizations.
         """
-        alpha_samples = self.alpha_process.sample()["prediction"]
-        alpha_samples = alpha_samples[: infections.shape[0]]
+
+        alpha_samples = self.alpha_process.sample(self.predictors)
+        alpha_samples = alpha_samples[0].value[: infections.shape[0]]
         expected_hosp = (
             alpha_samples
             * jnp.convolve(infections, inf_to_hosp_dist, mode="full")[

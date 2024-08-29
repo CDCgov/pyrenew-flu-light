@@ -16,7 +16,8 @@ from pyrenew.latent import (
     InfectionInitializationProcess,
     InitializeInfectionsFromVec,
 )
-from pyrenew.metaclass import DistributionalRV, Model, SampledValue
+from pyrenew.metaclass import Model, SampledValue
+from pyrenew.randomvariable import DistributionalVariable
 
 from pyrenew_flu_light import (
     CFAEPIM_Infections,
@@ -109,11 +110,11 @@ class CFAEPIM_Model(Model):
         # infections: initial infections
         self.I0 = InfectionInitializationProcess(
             name="I0_initialization",
-            I_pre_init_rv=DistributionalRV(
+            I_pre_init_rv=DistributionalVariable(
                 name="I0",
-                dist=dist.Exponential(rate=1 / self.mean_inf_val).expand(
-                    [self.inf_model_seed_days]
-                ),
+                distribution=dist.Exponential(
+                    rate=1 / self.mean_inf_val
+                ).expand([self.inf_model_seed_days]),
             ),
             infection_init_method=InitializeInfectionsFromVec(
                 n_timepoints=self.inf_model_seed_days
@@ -125,22 +126,22 @@ class CFAEPIM_Model(Model):
         # update: truncated Normal needed here, done
         # "under the hood" in Epidemia, use Beta for the
         # time being.
-        # self.susceptibility_prior = dist.Beta(
-        #     1
-        #     + (
-        #         self.susceptible_fraction_prior_mode
-        #         / self.susceptible_fraction_prior_scale
-        #     ),
-        #     1
-        #     + (1 - self.susceptible_fraction_prior_mode)
-        #     / self.susceptible_fraction_prior_scale,
-        # )
-        # now:
-        self.susceptibility_prior = dist.TruncatedNormal(
-            self.susceptible_fraction_prior_mode,
-            self.susceptible_fraction_prior_scale,
-            low=0.0,
+        self.susceptibility_prior = dist.Beta(
+            1
+            + (
+                self.susceptible_fraction_prior_mode
+                / self.susceptible_fraction_prior_scale
+            ),
+            1
+            + (1 - self.susceptible_fraction_prior_mode)
+            / self.susceptible_fraction_prior_scale,
         )
+        # now:
+        # self.susceptibility_prior = dist.TruncatedNormal(
+        #     self.susceptible_fraction_prior_mode,
+        #     self.susceptible_fraction_prior_scale,
+        #     low=0.0,
+        # )
 
         # infections component
         self.infections = CFAEPIM_Infections(
