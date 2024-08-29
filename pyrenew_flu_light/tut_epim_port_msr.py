@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Porting `cfa-forecast-renewal-epidemia`
 over to MSR. Validated on NHSN influenza

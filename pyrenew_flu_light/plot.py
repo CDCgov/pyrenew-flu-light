@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Plotting utilities for using pyrenew-flu-light.
 """

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 The observation process component in pyrenew-flu-light.
 """

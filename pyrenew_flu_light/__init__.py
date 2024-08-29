@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from checks import (
     assert_historical_data_files_exist,
     check_file_path_valid,

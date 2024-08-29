@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 The transmission process (Rt) component in pyrenew-flu-light.
 """

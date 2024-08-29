@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 The re-instantiated cfaepim model, with
 transmission, observation, and infection

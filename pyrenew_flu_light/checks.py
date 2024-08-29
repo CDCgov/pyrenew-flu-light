@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Methods to verify pathing and existence
 of certain files for use of pyrenew-flu-light.
