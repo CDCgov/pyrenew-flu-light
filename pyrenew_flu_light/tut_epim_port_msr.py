@@ -1821,6 +1821,10 @@ def main(args):  # numpydoc ignore=GL08
                 posterior_predictive=post_p_fs,
                 constant_data={"obs": obs},
             )
+            draws = model.spread_draws(variables_names=post_p_fs.keys())
+            save_path = f"{jurisdiction}_{args.reporting_date}_{forecast_days}_Ahead.csv"
+            if not os.path.exists(save_path):
+                draws.write_csv(save_path)
             if not args.forecast:
                 plot_lm_arviz_fit(idata)
             plot_hdi_arviz_for(idata, forecast_days)
