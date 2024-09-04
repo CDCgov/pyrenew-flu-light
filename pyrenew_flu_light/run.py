@@ -4,8 +4,8 @@ import argparse
 import logging
 import os
 
-import arviz as az
 import jax
+import numpy as np
 import numpyro
 import polars as pl
 
@@ -82,6 +82,10 @@ def run_single_jurisdiction(
             n_post_observation_days=n_post_observation_days,
         )
         logging.info(f"{jurisdiction}: Dataset w/ post-observation ready.")
+
+    data_save = f"filtered_data_{jurisdiction}"
+    if not os.path.exists(data_save):
+        filtered_data.write_csv(data_save)
 
     # extract jurisdiction population
     population = (
@@ -230,30 +234,82 @@ def run_single_jurisdiction(
     )
 
 
+# added in from pyrenew
+def spread_draws(
+    posteriors: dict,
+    variables_names: list[str] | list[tuple],
+) -> pl.DataFrame:
+    """
+    Get nicely shaped draws from the posterior
+
+    Given a dictionary of posteriors, return a long-form polars dataframe
+    indexed by draw, with variable values (equivalent of tidybayes
+    spread_draws() function).
+
+    Parameters
+    ----------
+    posteriors: dict
+        A dictionary of posteriors with variable names as keys and numpy
+        ndarrays as values (with the first axis corresponding to the posterior
+        draw number.
+    variables_names: list[str] | list[tuple]
+        list of strings or of tuples identifying which variables to retrieve.
+
+    Returns
+    -------
+    pl.DataFrame
+        A dataframe of draw-indexed
+    """
+
+    for i_var, v in enumerate(variables_names):
+        if isinstance(v, str):
+            v_dims = None
+        else:
+            v_dims = v[1:]
+            v = v[0]
+
+        post = posteriors.get(v)
+        long_post = post.flatten()[..., np.newaxis]
+
+        indices = np.array(list(np.ndindex(post.shape)))
+        n_dims = indices.shape[1] - 1
+        if v_dims is None:
+            dim_names = [
+                ("{}_dim_{}_index".format(v, k), pl.Int64)
+                for k in range(n_dims)
+            ]
+        elif len(v_dims) != n_dims:
+            raise ValueError(
+                "incorrect number of "
+                "dimension names "
+                "provided for variable "
+                "{}".format(v)
+            )
+        else:
+            dim_names = [(v_dim, pl.Int64) for v_dim in v_dims]
+
+        p_df = pl.DataFrame(
+            np.concatenate([indices, long_post], axis=1),
+            schema=([("draw", pl.Int64)] + dim_names + [(v, pl.Float64)]),
+        )
+
+        if i_var == 0:
+            df = p_df
+        else:
+            df = df.join(
+                p_df, on=[col for col in df.columns if col in p_df.columns]
+            )
+        pass
+
+    return df
+
+
 def main(args):  # numpydoc ignore=GL08
     """
-    The `cfaepim` model required a configuration
-    file and a dataset. The configuration file must
-    follow some detailed specifications, as must the
-    dataset. Once these are in place, the model is
-    used in the following manner for each state:
-    (1) extract the population, the indices of the weeks,
-    the hospitalizations during the first week, & the
-    covariates, (2) the configuration file and the
-    previous content then will be used to produce
-    an Rt, infections, and observation process by
-    passing them to the `cfaepim` model, (3) the user
-    can use argparse to test or compare the forecasts.
-    The `cfaepim` tool is used for runs on hospitalization
-    data retrieved from an API or stored historically.
+    pyrenew-flu-light; to run:
 
-    Notes
-    -----
-    Testing in `cfaepim` includes ensuring the dataset
-    and configuration have the correct variables and
-    values in a proper range. Testing also ensures that
-    each part of the `cfaepim` model works as desired.
-    python3 tut_epim_port_msr.py --reporting_date 2024-01-20 --regions NY --historical --forecast
+    python3 tut_epim_port_msr.py --reporting_date 2024-01-20
+    --regions NY --historical --forecast
     python3 tut_epim_port_msr.py --reporting_date 2024-03-30 --regions AL --historical --forecast
     """
     logging.info("Starting CFAEPIM")
@@ -264,10 +320,9 @@ def main(args):  # numpydoc ignore=GL08
     numpyro.set_host_device_count(num_cores - (num_cores - 3))
     logging.info("Number of cores set.")
 
-    # check that output directory exists, if not create
-    output_directory = pyrenew_flu_light.ensure_output_directory(args)
-    print(output_directory)
-    logging.info("Output directory ensured working.")
+    # # check that output directory exists, if not create
+    # output_directory = pyrenew_flu_light.ensure_output_directory(args)
+    # logging.info("Output directory ensured working.")
 
     if args.historical_data:
         # check that historical cfaepim data exists for given reporting date
@@ -282,7 +337,7 @@ def main(args):  # numpydoc ignore=GL08
             config = pyrenew_flu_light.load_config(config_path=args.use_c)
         else:
             config = pyrenew_flu_light.load_config(
-                config_path=f"../config/params_{args.reporting_date}_historical.toml"
+                config_path=f"../model_comparison/config/params_{args.reporting_date}.toml"
             )
         logging.info("Configuration (historical) loaded.")
 
@@ -301,31 +356,6 @@ def main(args):  # numpydoc ignore=GL08
         influenza_hosp_data = influenza_hosp_data.with_columns(
             pl.col("date").str.strptime(pl.Date, "%Y-%m-%d")
         )
-
-        # save plots of the raw hospitalization data,
-        # for all jurisdictions
-        if args.data_info_save:
-            # save pdf of 2, 2x2 (log-scale plots)
-            # total hospitalizations (full season) & last 4 weeks
-            # log scale, log scale
-            # growth rate, moving average
-            # log-scale, log-scale
-            # check if this already exist + do for all juris.
-            pass
-
-        if args.model_info_save:
-            # save model diagram
-            # save plots for priors
-            # check if this already exists, do for each config file
-            # save_numpyro_model(
-            #     save_path=output_directory + "cfaepim_diagram.pdf",
-            #     jurisdiction="NY",
-            #     dataset=influenza_hosp_data,
-            #     config=config,
-            #     forecasting=args.forecast,
-            #     n_post_observation_days=28,
-            # )
-            pass
 
         # parallel run over jurisdictions
         # results = dict([(elt, {}) for elt in args.regions])
@@ -348,13 +378,20 @@ def main(args):  # numpydoc ignore=GL08
                 forecasting=args.forecast,
                 n_post_observation_days=forecast_days,
             )
-
-            idata = az.from_numpyro(
-                posterior=model.mcmc,
-                prior=prior_p_ss,
-                posterior_predictive=post_p_fs,
-                constant_data={"obs": obs},
+            print(prior_p_ss["negbinom_rv"])
+            save_path_samples = f"{jurisdiction}_{args.reporting_date}_{forecast_days}_NegBinRv.csv"
+            df = spread_draws(
+                posteriors=post_p_fs, variables_names=["negbinom_rv"]
             )
+            if not os.path.exists(save_path_samples):
+                df.write_csv(save_path_samples)
+
+            # idata = az.from_numpyro(
+            #     posterior=model.mcmc,
+            #     prior=prior_p_ss,
+            #     posterior_predictive=post_p_fs,
+            #     constant_data={"obs": obs},
+            # )
             save_path = f"{jurisdiction}_{args.reporting_date}_{forecast_days}_Ahead.csv"
             if not os.path.exists(save_path):
                 df = pl.DataFrame(
@@ -362,9 +399,9 @@ def main(args):  # numpydoc ignore=GL08
                 )
                 df.write_csv(save_path)
 
-            if not args.forecast:
-                pyrenew_flu_light.plot_lm_arviz_fit(idata)
-            pyrenew_flu_light.plot_hdi_arviz_for(idata, forecast_days)
+            # if not args.forecast:
+            #     pyrenew_flu_light.plot_lm_arviz_fit(idata)
+            # pyrenew_flu_light.plot_hdi_arviz_for(idata, forecast_days)
 
 
 if __name__ == "__main__":

@@ -35,6 +35,12 @@ repos:
     hooks:
     -   id: actionlint
 ################################################################################
+# -   repo: https://github.com/lorenzwalthert/precommit
+#     rev: v0.4.3
+#     hooks:
+#     -   id: styler-r
+#     -   id: lintr-r
+################################################################################
 -   repo: https://github.com/crate-ci/typos
     rev: v1.21.0
     hooks:

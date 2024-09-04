@@ -80,7 +80,7 @@ def ensure_output_directory(args: dict[str, any]):  # numpydoc ignore=GL08
 def assert_historical_data_files_exist(
     reporting_date: str,
 ):  # numpydoc ignore=GL08
-    data_directory = f"../data/{reporting_date}/"
+    data_directory = f"../model_comparison/data/{reporting_date}/"
     assert os.path.exists(
         data_directory
     ), f"Data directory {data_directory} does not exist."
