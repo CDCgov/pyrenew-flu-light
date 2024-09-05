@@ -242,8 +242,6 @@ def run_single_jurisdiction(
     )
 
 
-
-
 def main(args):
 
     logging.info("Initiating Pyrenew Flu Light...")
