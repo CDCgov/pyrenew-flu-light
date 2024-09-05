@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 The re-instantiated cfaepim model, with
 transmission, observation, and infection
@@ -28,7 +26,7 @@ from pyrenew_flu_light import (
 )
 
 
-class CFAEPIM_Model_Sample(NamedTuple):  # numpydoc ignore=GL08
+class CFAEPIM_Model_Sample(NamedTuple):
     Rts: SampledValue | None = None
     latent_infections: SampledValue | None = None
     susceptibles: SampledValue | None = None
@@ -76,7 +74,7 @@ class CFAEPIM_Model(Model):
         week_indices: ArrayLike,
         first_week_hosp: int,
         predictors: list[int],
-    ):  # numpydoc ignore=GL08
+    ):
         self.population = population
         self.week_indices = week_indices
         self.first_week_hosp = first_week_hosp

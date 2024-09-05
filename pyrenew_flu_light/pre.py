@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ETL system for pyrenew-flu-light.
 """

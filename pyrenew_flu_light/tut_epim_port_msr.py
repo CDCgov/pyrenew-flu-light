@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Porting `cfa-forecast-renewal-epidemia`
 over to MSR. Validated on NHSN influenza
@@ -272,7 +270,7 @@ def load_config(config_path: str) -> dict[str, any]:
     return config
 
 
-def ensure_output_directory(args: dict[str, any]):  # numpydoc ignore=GL08
+def ensure_output_directory(args: dict[str, any]):
     output_directory = "./output/"
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -289,7 +287,7 @@ def ensure_output_directory(args: dict[str, any]):  # numpydoc ignore=GL08
 
 def assert_historical_data_files_exist(
     reporting_date: str,
-):  # numpydoc ignore=GL08
+):
     data_directory = f"../data/{reporting_date}/"
     assert os.path.exists(
         data_directory
@@ -318,7 +316,7 @@ def plot_utils(
     filename: str = "delete_me",
     save_as_img: bool = False,
     save_to_pdf: bool = False,
-) -> None | plt.Figure:  # numpydoc ignore=GL08
+) -> None | plt.Figure:
     if use_legend:
         axes.legend(loc="best")
     if use_log:
@@ -537,7 +535,7 @@ class CFAEPIM_Infections(RandomVariable):
         self,
         I0: ArrayLike,
         susceptibility_prior: numpyro.distributions,
-    ):  # numpydoc ignore=GL08
+    ):
         logging.info("Initializing CFAEPIM_Infections")
 
         self.I0 = I0
@@ -639,7 +637,7 @@ class CFAEPIM_Infections(RandomVariable):
         # calculate initial susceptible population S_{v-1}
         init_S = init_S_proportion * P
 
-        def update_infections(carry, Rt):  # numpydoc ignore=GL08
+        def update_infections(carry, Rt):
             S_t, I_recent = carry
 
             # compute raw infections
@@ -699,7 +697,7 @@ class CFAEPIM_Observation(RandomVariable):
         alpha_prior_dist,
         coefficient_priors,
         nb_concentration_prior,
-    ):  # numpydoc ignore=GL08
+    ):
         logging.info("Initializing CFAEPIM_Observation")
 
         # CFAEPIM_Observation.validate(
@@ -825,14 +823,14 @@ class CFAEPIM_Observation(RandomVariable):
         return alpha_samples, expected_hosp
 
 
-class CFAEPIM_Rt(RandomVariable):  # numpydoc ignore=GL08
+class CFAEPIM_Rt(RandomVariable):
     def __init__(
         self,
         intercept_RW_prior: numpyro.distributions,
         max_rt: float,
         gamma_RW_prior_scale: float,
         week_indices: ArrayLike,
-    ):  # numpydoc ignore=GL08
+    ):
         """
         Initialize the CFAEPIM_Rt class.
 
@@ -862,7 +860,7 @@ class CFAEPIM_Rt(RandomVariable):  # numpydoc ignore=GL08
         max_rt: any,
         gamma_RW_prior_scale: any,
         week_indices: any,
-    ) -> None:  # numpydoc ignore=GL08
+    ) -> None:
         """
         Validate the parameters of the CFAEPIM_Rt class.
 
@@ -892,7 +890,7 @@ class CFAEPIM_Rt(RandomVariable):  # numpydoc ignore=GL08
                 f"week_indices must be an array-like structure; was type {type(week_indices)}"
             )
 
-    def sample(self, n_steps: int, **kwargs) -> tuple:  # numpydoc ignore=GL08
+    def sample(self, n_steps: int, **kwargs) -> tuple:
         """
         Sample the Rt values using a random walk process
         and broadcast them to daily values.
@@ -940,7 +938,7 @@ class CFAEPIM_Rt(RandomVariable):  # numpydoc ignore=GL08
         return broadcasted_rt_samples
 
 
-class CFAEPIM_Model_Sample(NamedTuple):  # numpydoc ignore=GL08
+class CFAEPIM_Model_Sample(NamedTuple):
     Rts: SampledValue | None = None
     latent_infections: SampledValue | None = None
     susceptibles: SampledValue | None = None
@@ -988,7 +986,7 @@ class CFAEPIM_Model(Model):
         week_indices: ArrayLike,
         first_week_hosp: int,
         predictors: list[int],
-    ):  # numpydoc ignore=GL08
+    ):
         self.population = population
         self.week_indices = week_indices
         self.first_week_hosp = first_week_hosp
@@ -1351,7 +1349,7 @@ def add_pre_observation_period(
     return merged_data
 
 
-def process_jurisdictions(value):  # numpydoc ignore=GL08
+def process_jurisdictions(value):
     if value.lower() == "all":
         return JURISDICTIONS
     elif value.lower().startswith("not:"):
@@ -1367,7 +1365,7 @@ def process_jurisdictions(value):  # numpydoc ignore=GL08
 #     config: dict[str, any],
 #     forecasting: bool = False,
 #     n_post_observation_days: int = 0,
-# ):  # numpydoc ignore=GL08
+# ):
 #     """
 #     Originally separated to support `model_render`;
 #     possibly reintegrated w/ `run_single_jurisdiction`.
@@ -1585,7 +1583,7 @@ def save_numpyro_model(
     config: dict[str, any],
     forecasting: bool = False,
     n_post_observation_days: int = 0,
-):  # numpydoc ignore=GL08
+):
     # check if the file exists
     if os.path.exists(save_path):
         pass
@@ -1604,7 +1602,7 @@ def save_numpyro_model(
 
 def template_save_file(
     title: str, save_path: str, figure_and_descriptions: list[tuple[str, str]]
-):  # numpydoc ignore=GL08
+):
     header_p1 = f"""
     ---
     title: "{title}"
@@ -1623,7 +1621,7 @@ def template_save_file(
             f.close()
 
 
-def convert_markdown_output_files_to_pdf():  # numpydoc ignore=GL08
+def convert_markdown_output_files_to_pdf():
     markdown_files = glob.glob("*.md")
     print(markdown_files)
     pass
@@ -1636,7 +1634,7 @@ def save_inference_content():
     pass
 
 
-def plot_lm_arviz_fit(idata):  # numpydoc ignore=GL08
+def plot_lm_arviz_fit(idata):
     fig, ax = plt.subplots()
     az.plot_lm(
         "negbinom_rv",
@@ -1652,14 +1650,14 @@ def plot_lm_arviz_fit(idata):  # numpydoc ignore=GL08
     plt.show()
 
 
-def compute_eti(dataset, eti_prob):  # numpydoc ignore=GL08
+def compute_eti(dataset, eti_prob):
     eti_bdry = dataset.quantile(
         ((1 - eti_prob) / 2, 1 / 2 + eti_prob / 2), dim=("chain", "draw")
     )
     return eti_bdry.values.T
 
 
-def plot_hdi_arviz_for(idata, forecast_days):  # numpydoc ignore=GL08
+def plot_hdi_arviz_for(idata, forecast_days):
     x_data = idata.posterior_predictive["negbinom_rv_dim_0"] + forecast_days
     y_data = idata.posterior_predictive["negbinom_rv"]
     fig, axes = plt.subplots(figsize=(6, 5))
@@ -1699,7 +1697,7 @@ def plot_hdi_arviz_for(idata, forecast_days):  # numpydoc ignore=GL08
     plt.show()
 
 
-def main(args):  # numpydoc ignore=GL08
+def main(args):
     """
     The `cfaepim` model required a configuration
     file and a dataset. The configuration file must
