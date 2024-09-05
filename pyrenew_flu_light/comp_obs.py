@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 The observation process component in pyrenew-flu-light.
 """
@@ -44,7 +42,7 @@ class CFAEPIM_Observation(RandomVariable):
         alpha_prior_dist,
         coefficient_priors,
         nb_concentration_prior,
-    ):  # numpydoc ignore=GL08
+    ):
         logging.info("Initializing CFAEPIM_Observation")
 
         # CFAEPIM_Observation.validate(

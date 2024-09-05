@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Comparisons made between posterior samples.
 """
@@ -18,7 +16,7 @@ def quantilize_forecasts(
     fitting_data,
     output_path,
     reference_date,
-):  # numpydoc ignore=GL08
+):
     pandas2ri.activate()
     forecasttools = importr("forecasttools")
     # dplyr = importr("dplyr")

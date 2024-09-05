@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Methods to verify pathing and existence
 of certain files for use of pyrenew-flu-light.
@@ -62,7 +60,7 @@ def load_config(config_path: str) -> dict[str, any]:
     return config
 
 
-def ensure_output_directory(args: dict[str, any]):  # numpydoc ignore=GL08
+def ensure_output_directory(args: dict[str, any]):
     output_directory = "./output/"
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -79,7 +77,7 @@ def ensure_output_directory(args: dict[str, any]):  # numpydoc ignore=GL08
 
 def assert_historical_data_files_exist(
     reporting_date: str,
-):  # numpydoc ignore=GL08
+):
     data_directory = f"../model_comparison/data/{reporting_date}/"
     assert os.path.exists(
         data_directory
