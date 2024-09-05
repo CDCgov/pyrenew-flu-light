@@ -63,7 +63,7 @@ def display_data(
         print(f"Dataset In Use For `cfaepim`:\n{data_to_display}\n")
 
 
-def load_data(
+def load_saved_data(
     data_path: str,
     sep: str = "\t",
     schema_length: int = 10000,
@@ -101,4 +101,5 @@ def load_data(
     data = pl.read_csv(
         data_path, separator=sep, infer_schema_length=schema_length
     )
+    data = data.with_columns(pl.col("date").str.strptime(pl.Date, "%Y-%m-%d"))
     return data
