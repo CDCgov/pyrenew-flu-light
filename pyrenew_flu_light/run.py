@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import argparse
 import logging
 import os
@@ -11,7 +9,7 @@ import polars as pl
 import pyrenew_flu_light
 
 
-def process_jurisdictions(value):  # numpydoc ignore=GL08
+def process_jurisdictions(value):
     if value.lower() == "all":
         return pyrenew_flu_light.JURISDICTIONS
     elif value.lower().startswith("not:"):
@@ -244,7 +242,9 @@ def run_single_jurisdiction(
     )
 
 
-def main(args):  # numpydoc ignore=GL08
+
+
+def main(args):
 
     logging.info("Initiating Pyrenew Flu Light...")
 

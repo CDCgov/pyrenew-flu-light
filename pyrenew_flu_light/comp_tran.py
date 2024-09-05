@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 The transmission process (Rt) component in pyrenew-flu-light.
 """
@@ -18,14 +16,14 @@ from pyrenew.process import RandomWalk
 from pyrenew.randomvariable import DistributionalVariable, TransformedVariable
 
 
-class CFAEPIM_Rt(RandomVariable):  # numpydoc ignore=GL08
+class CFAEPIM_Rt(RandomVariable):
     def __init__(
         self,
         intercept_RW_prior: numpyro.distributions,
         max_rt: float,
         gamma_RW_prior_scale: float,
         week_indices: ArrayLike,
-    ):  # numpydoc ignore=GL08
+    ):
         """
         Initialize the CFAEPIM_Rt class.
 
@@ -55,7 +53,7 @@ class CFAEPIM_Rt(RandomVariable):  # numpydoc ignore=GL08
         max_rt: any,
         gamma_RW_prior_scale: any,
         week_indices: any,
-    ) -> None:  # numpydoc ignore=GL08
+    ) -> None:
         """
         Validate the parameters of the CFAEPIM_Rt class.
 
@@ -85,7 +83,7 @@ class CFAEPIM_Rt(RandomVariable):  # numpydoc ignore=GL08
                 f"week_indices must be an array-like structure; was type {type(week_indices)}"
             )
 
-    def sample(self, n_steps: int, **kwargs) -> tuple:  # numpydoc ignore=GL08
+    def sample(self, n_steps: int, **kwargs) -> tuple:
         """
         Sample the Rt values using a random walk process
         and broadcast them to daily values.

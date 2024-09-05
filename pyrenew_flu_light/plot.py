@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Plotting utilities for using pyrenew-flu-light.
 """
@@ -8,7 +6,7 @@ import arviz as az
 import matplotlib.pyplot as plt
 
 
-def plot_lm_arviz_fit(idata):  # numpydoc ignore=GL08
+def plot_lm_arviz_fit(idata):
     fig, ax = plt.subplots()
     az.plot_lm(
         "negbinom_rv",
@@ -24,14 +22,14 @@ def plot_lm_arviz_fit(idata):  # numpydoc ignore=GL08
     plt.show()
 
 
-def compute_eti(dataset, eti_prob):  # numpydoc ignore=GL08
+def compute_eti(dataset, eti_prob):
     eti_bdry = dataset.quantile(
         ((1 - eti_prob) / 2, 1 / 2 + eti_prob / 2), dim=("chain", "draw")
     )
     return eti_bdry.values.T
 
 
-def plot_hdi_arviz_for(idata, forecast_days):  # numpydoc ignore=GL08
+def plot_hdi_arviz_for(idata, forecast_days):
     x_data = idata.posterior_predictive["negbinom_rv_dim_0"] + forecast_days
     y_data = idata.posterior_predictive["negbinom_rv"]
     fig, axes = plt.subplots(figsize=(6, 5))

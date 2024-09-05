@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Functions for scoring PFL forecasts or comparing
 posterior predictive distributions based on

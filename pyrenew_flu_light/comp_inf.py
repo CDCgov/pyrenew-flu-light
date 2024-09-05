@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 The infections process component in pyrenew-flu-light.
 """
@@ -36,7 +34,7 @@ class CFAEPIM_Infections(RandomVariable):
         self,
         I0: ArrayLike,
         susceptibility_prior: numpyro.distributions,
-    ):  # numpydoc ignore=GL08
+    ):
         logging.info("Initializing CFAEPIM_Infections")
 
         self.I0 = I0
@@ -138,7 +136,7 @@ class CFAEPIM_Infections(RandomVariable):
         # calculate initial susceptible population S_{v-1}
         init_S = init_S_proportion * P
 
-        def update_infections(carry, Rt):  # numpydoc ignore=GL08
+        def update_infections(carry, Rt):
             S_t, I_recent = carry
 
             # compute raw infections
