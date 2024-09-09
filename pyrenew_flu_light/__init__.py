@@ -19,6 +19,13 @@ from model import CFAEPIM_Model
 from pad import add_post_observation_period, add_pre_observation_period
 from post import generate_draws_from_samples
 from pre import load_config_file, load_saved_data
+from run import (
+    get_samples_from_ran_model,
+    instantiate_model,
+    load_data_variables_for_model,
+    run_jurisdiction,
+    run_pyrenew_flu_light_model,
+)
 
 # the 50 states in the United States
 JURISDICTIONS = [
@@ -103,4 +110,9 @@ __all__ = [
     "load_config_file",
     "load_saved_data",
     "generate_draws_from_samples",
+    "load_data_variables_for_model",
+    "instantiate_model",
+    "get_samples_from_ran_model",
+    "run_pyrenew_flu_light_model",
+    "run_jurisdiction",
 ]
