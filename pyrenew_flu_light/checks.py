@@ -26,7 +26,6 @@ def check_output_directories(args: dict[str, any], current_dir: str) -> None:
     """
 
     top_level_dir = "pyrenew-flu-light"
-
     # active mode, likely using NSSP
     if not args.historical_data:
         # get top-level path regardless of depth of call
@@ -67,7 +66,6 @@ def check_historical_data_files(
     """
 
     top_level_dir = "pyrenew-flu-light"
-
     # get top-level path regardless of depth of call
     while not os.path.basename(
         current_dir

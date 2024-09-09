@@ -1,3 +1,9 @@
+"""
+File to run pyrenew-flu-light from the
+command line. Example, for running:
+python3 run.py --reporting_date 2024-01-20 --regions NY --historical
+"""
+
 import argparse
 import logging
 import os
@@ -115,7 +121,7 @@ def load_data_variables_for_model(
     return out
 
 
-def instantiate_pyrenew_flu_light_model(
+def instantiate_model(
     jurisdiction: str,
     dataset: pl.DataFrame,
     args: dict[str, any],
@@ -152,28 +158,32 @@ def instantiate_pyrenew_flu_light_model(
     return variables_from_data, model
 
 
-def run_pyrenew_flu_light_model(
-    model,
-    args,
-    config,
-    variables_from_data,
-):
+def get_samples_from_ran_model(model, config, steps, data_obs_hosp=None):
+    # simulate data from model
+    prior_predictive_samples = model.prior_predictive(
+        n_steps=steps,
+        numpyro_predictive_args={"num_samples": config["n_iter"]},
+        rng_key=jax.random.key(config["seed"]),
+    )
+    # fit the model to the data
+    posterior_predictive_samples = model.posterior_predictive(
+        n_steps=steps,
+        numpyro_predictive_args={"num_samples": config["n_iter"]},
+        rng_key=jax.random.key(config["seed"]),
+        data_observed_hosp_admissions=data_obs_hosp,
+    )
+    return prior_predictive_samples, posterior_predictive_samples
+
+
+def run_pyrenew_flu_light_model(model, config, steps, data_obs_hosp):
     """
     Fit pyrenew-flu-light to data for a single
     jurisdiction.
     """
-    # define the observed hospital admissions data to exclude observations
-    # in the synthetic data, of which there are n_post_observation_days worth
-    steps_excluding_forecast = (
-        variables_from_data["total_steps"] - args.lookahead
-    )
-    data_obs_hosp = variables_from_data["observations"][
-        :steps_excluding_forecast
-    ]
     # run the model
     model.run(
         rng_key=jax.random.key(config["seed"]),
-        n_steps=steps_excluding_forecast,
+        n_steps=steps,
         data_observed_hosp_admissions=data_obs_hosp,
         num_warmup=config["n_warmup"],
         num_samples=config["n_iter"],
@@ -189,20 +199,7 @@ def run_pyrenew_flu_light_model(
         },
     )
     model.print_summary()
-    # simulate data from model
-    prior_predictive_samples = model.prior_predictive(
-        n_steps=steps_excluding_forecast,
-        numpyro_predictive_args={"num_samples": config["n_iter"]},
-        rng_key=jax.random.key(config["seed"]),
-    )
-    # fit the model to the data
-    posterior_predictive_samples = model.posterior_predictive(
-        n_steps=steps_excluding_forecast,
-        numpyro_predictive_args={"num_samples": config["n_iter"]},
-        rng_key=jax.random.key(config["seed"]),
-        data_observed_hosp_admissions=None,
-    )
-    return prior_predictive_samples, posterior_predictive_samples, model.mcmc
+    return model.mcmc
 
 
 def run_jurisdiction(
@@ -211,60 +208,60 @@ def run_jurisdiction(
     args: dict[str, any],
     config: dict[str, any],
 ):
-    # define the model
-    variables_from_data, model = instantiate_pyrenew_flu_light_model(
+    # define the model and retrieve variables from data
+    variables_from_data, model = instantiate_model(
         jurisdiction,
         dataset,
         args,
         config,
     )
+    # define the observed hospital admissions data to exclude observations
+    # in the synthetic data, of which there are n_post_observation_days worth
+    steps_excluding_forecast = (
+        variables_from_data["total_steps"] - args.lookahead
+    )
+    data_obs_hosp = variables_from_data["observations"][
+        :steps_excluding_forecast
+    ]
     # run the model, getting the samples
-    priorp, postp, model_mcmc = run_pyrenew_flu_light_model(
+    model_mcmc = run_pyrenew_flu_light_model(
         model,
-        args,
         config,
-        variables_from_data,
+        steps=steps_excluding_forecast,
+        data_obs_hosp=data_obs_hosp,
     )
     # different approach for forecasting
     if args.forecast:
-        # reinstaniate model
-        for_variables_from_data, forecasting_model = (
-            instantiate_pyrenew_flu_light_model(
-                jurisdiction, dataset, args, config
-            )
+        # reinstaniate another model
+        for_variables_from_data, forecasting_model = instantiate_model(
+            jurisdiction, dataset, args, config
         )
-        # modify model mcmc object
-        forecasting_model.mcmc = model_mcmc
-        # run the forecasting model
-        for_priorp, for_postp, for_mcmc = run_pyrenew_flu_light_model(
-            model,
-            args,
+        # modify forecasting model mcmc object
+        forecasting_model.mcmc = model_mcmc  # NOTE: this might change
+        # get samples from the forecasting model
+        for_priorp, for_postp = get_samples_from_ran_model(
+            forecasting_model,
             config,
-            variables_from_data,
+            steps=steps_excluding_forecast,
+            data_obs_hosp=None,
         )
         # define arviz object
         idata = az.from_numpyro(
-            for_mcmc,
+            forecasting_model.mcmc,
             posterior_predictive=for_postp,
             prior=for_priorp,
         )
         return idata
-    # return arviz object, no forecasting
+    # get samples for non-forecasting model
+    priorp, postp = get_samples_from_ran_model(
+        model, config, steps=steps_excluding_forecast, data_obs_hosp=None
+    )
     idata = az.from_numpyro(
         model_mcmc,
         posterior_predictive=postp,
         prior=priorp,
     )
     return idata
-
-
-def forecast_single_jurisdiction():
-    """
-    Runs the ported `cfaepim` model on a single
-    jurisdiction. Pre- and post-observation data
-    for the Rt burn.
-    """
-    pass
 
 
 def main(args):
@@ -299,44 +296,18 @@ def main(args):
             data_path=data_file_path, sep="\t"
         )
         logging.info("Historical NHSN influenza incidence data loaded.")
+        # create new experiment for each iteration of comparison
+
         # iterate over jurisdictions selected, running the model
         for jurisdiction in args.regions:
+            # check if jurisdiction file already exists
             idata = run_jurisdiction(
                 jurisdiction=jurisdiction,
                 dataset=influenza_hosp_data,
                 args=args,
                 config=config,
             )
-            print(idata)
-
-            # NOTE: subject to change wrt what is returned here
-            # (model, obs, prior_p_ss, post_p_ss, post_p_fs, dataset) = (
-            #     run_single_jurisdiction(
-            #         jurisdiction=jurisdiction,
-            #         dataset=influenza_hosp_data,
-            #         config=config,
-            #         forecasting=args.forecast,
-            #         n_post_observation_days=args.lookahead,
-            #     )
-            # )
-
-            # create and save data as arviz inference data object
-            # run_output = az.from_numpyro(
-            #     mcmc=model.mcmc,
-            #     prior=prior_p_ss,
-            #     posterior_predictive=post_p_fs,
-            #     coords={"school": np.arange(eight_school_data["J"])},
-            #     dims={"theta": ["school"]},
-            # )
-
-            # NOTE: subject to change wrt arviz idata usage
-            # post_p_fs_as_draws = pyrenew_flu_light.generate_draws_from_samples(
-            #     post_p_fs=post_p_fs,
-            #     variable_name="negbinom_rv",
-            #     dataset=dataset,
-            #     forecast_days=forecast_days,
-            #     reporting_date=args.reporting_date,
-            # )
+            print(idata.posterior)
 
 
 if __name__ == "__main__":
@@ -376,6 +347,12 @@ if __name__ == "__main__":
         type=int,
         default=28,
         help="The number of days to forecast ahead.",
+    )
+    parser.add_argument(
+        "--exp_name",
+        type=str,
+        default="test",
+        help="The name of a given experiment.",
     )
     args = parser.parse_args()
     main(args)

@@ -56,7 +56,6 @@ class CFAEPIM_Observation(RandomVariable):
         self.alpha_prior_dist = alpha_prior_dist
         self.coefficient_priors = coefficient_priors
         self.nb_concentration_prior = nb_concentration_prior
-
         self._init_alpha_t()
         self._init_negative_binomial()
 

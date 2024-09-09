@@ -45,19 +45,15 @@ def generate_draws_from_samples(
     pl.DataFrame
         Dated draws for the variable of interest.
     """
-
     # get dates for which forecasts were made
     data_and_forecast_dates = (
         dataset.select(pl.col("date")).to_numpy().flatten()
     )
     forecast_dates = data_and_forecast_dates[-forecast_days:]
-
     # posterior predictive <variable_name> forecasts
     forecasted_samples = post_p_fs[variable_name][:, -forecast_days:]
-
     # number of draws is the number of samples
     n_draws = post_p_fs.shape[0]
-
     # dated draws
     dated_draws = {
         ".draw": np.repeat(
