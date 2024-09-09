@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 
+import arviz as az
 import jax
 import numpyro
 import polars as pl
@@ -43,63 +44,32 @@ def process_jurisdictions(value: str) -> list[str]:
         raise Exception(f"An unexpected error occurred: {str(e)}")
 
 
-def run_single_jurisdiction(
+def load_data_variables_for_model(
     jurisdiction: str,
     dataset: pl.DataFrame,
+    args: dict[str, any],
     config: dict[str, any],
-    forecasting: bool = False,
-    n_post_observation_days: int = 0,
-):
+) -> dict[str, any]:
     """
-    Runs the ported `cfaepim` model on a single
-    jurisdiction. Pre- and post-observation data
-    for the Rt burn in and for forecasting,
-    respectively, is done before the prior predictive,
-    posterior, and posterior predictive samples
-    are returned.
-
-    Parameters
-    ----------
-    jurisdiction : str
-        The jurisdiction.
-    dataset : pl.DataFrame
-        The incidence data of interest.
-    config : dict[str, any]
-        A configuration file for the model.
-    forecasting : bool, optional
-        Whether or not forecasts are being made.
-        Defaults to True.
-    n_post_observation_days : int, optional
-        The number of days to look ahead. Defaults
-        to 0 if not forecasting.
-
-    Returns
-    -------
-    tuple
-        A tuple of prior predictive, posterior, and
-        posterior predictive samples.
+    Returns a dictionary of values for
+    use in instantiating the
+    pyrenew-flu-light model.
     """
-    # filter data to be the jurisdiction alone
+    # filter out jurisdiction data
     filtered_data_jurisdiction = dataset.filter(
         pl.col("location") == jurisdiction
     )
-
     # add the pre-observation period to the dataset
     filtered_data = pyrenew_flu_light.add_pre_observation_period(
         dataset=filtered_data_jurisdiction,
         n_pre_observation_days=config["n_pre_observation_days"],
     )
-
-    logging.info(f"{jurisdiction}: Dataset w/ pre-observation ready.")
-
-    if forecasting:
-        # add the post-observation period if forecasting
+    # add post-observation period if forecast
+    if args.forecast:
         filtered_data = pyrenew_flu_light.add_post_observation_period(
             dataset=filtered_data,
-            n_post_observation_days=n_post_observation_days,
+            n_post_observation_days=args.lookahead,
         )
-        logging.info(f"{jurisdiction}: Dataset w/ post-observation ready.")
-
     # extract jurisdiction population
     population = (
         filtered_data.select(pl.col("population"))
@@ -107,10 +77,8 @@ def run_single_jurisdiction(
         .to_numpy()
         .flatten()
     )[0]
-
     # extract indices for weeks for Rt broadcasting (weekly to daily)
     week_indices = filtered_data.select(pl.col("week")).to_numpy().flatten()
-
     # extract first week hospitalizations for infections seeding
     first_week_hosp = (
         filtered_data.select(pl.col("first_week_hosp"))
@@ -118,7 +86,6 @@ def run_single_jurisdiction(
         .to_numpy()
         .flatten()
     )[0]
-
     # extract covariates (typically weekday, holidays, nonobs period)
     day_of_week_covariate = (
         filtered_data.select(pl.col("day_of_week"))
@@ -132,35 +99,82 @@ def run_single_jurisdiction(
         [day_of_week_covariate, remaining_covariates], how="horizontal"
     )
     predictors = covariates.to_numpy()
-
     # extract observation hospital admissions
-    # NOTE: from filtered_data_jurisdiction, not filtered_data, which has null hosp
     observed_hosp_admissions = (
         filtered_data.select(pl.col("hosp")).to_numpy().flatten()
     )
+    # output dictionary
+    out = {
+        "population": population,
+        "first_week_hosp": first_week_hosp,
+        "week_indices": week_indices,
+        "predictors": predictors,
+        "observations": observed_hosp_admissions,
+        "total_steps": week_indices.size,
+    }
+    return out
 
-    logging.info(f"{jurisdiction}: Variables extracted from dataset.")
 
-    # instantiate CFAEPIM model (for fitting)
-    total_steps = week_indices.size
-    steps_excluding_forecast = total_steps - n_post_observation_days
-    cfaepim_MSR_fit = pyrenew_flu_light.CFAEPIM_Model(
-        config=config,
-        population=population,
-        week_indices=week_indices[:steps_excluding_forecast],
-        first_week_hosp=first_week_hosp,
-        predictors=predictors[:steps_excluding_forecast],
+def instantiate_pyrenew_flu_light_model(
+    jurisdiction: str,
+    dataset: pl.DataFrame,
+    args: dict[str, any],
+    config: dict[str, any],
+):
+    """
+    Instantiate the pyrenew-flu-light model
+    using the config and the variables derived
+    from the jurisdiction's dataset.
+    """
+    # load model variables from jurisdiction dataset
+    variables_from_data = load_data_variables_for_model(
+        jurisdiction=jurisdiction, dataset=dataset, args=args, config=config
     )
+    # define the number of time points, will change if forecasting, since
+    # synthetic data some steps ahead has covariates
+    steps_excluding_forecast = (
+        variables_from_data["total_steps"] - args.lookahead
+    )
+    non_forecast_week_indices = variables_from_data["week_indices"][
+        :steps_excluding_forecast
+    ]
+    non_forecast_predictors = variables_from_data["predictors"][
+        :steps_excluding_forecast
+    ]
+    # get pyrenew flu light model
+    model = pyrenew_flu_light.CFAEPIM_Model(
+        config=config,  # NOTE: change to variable by variable param?
+        population=variables_from_data["population"],
+        week_indices=non_forecast_week_indices,
+        first_week_hosp=variables_from_data["first_week_hosp"],
+        predictors=non_forecast_predictors,
+    )
+    return variables_from_data, model
 
-    logging.info(f"{jurisdiction}: CFAEPIM model instantiated (fitting)!")
 
-    # run the CFAEPIM model
-    cfaepim_MSR_fit.run(
+def run_pyrenew_flu_light_model(
+    model,
+    args,
+    config,
+    variables_from_data,
+):
+    """
+    Fit pyrenew-flu-light to data for a single
+    jurisdiction.
+    """
+    # define the observed hospital admissions data to exclude observations
+    # in the synthetic data, of which there are n_post_observation_days worth
+    steps_excluding_forecast = (
+        variables_from_data["total_steps"] - args.lookahead
+    )
+    data_obs_hosp = variables_from_data["observations"][
+        :steps_excluding_forecast
+    ]
+    # run the model
+    model.run(
         rng_key=jax.random.key(config["seed"]),
         n_steps=steps_excluding_forecast,
-        data_observed_hosp_admissions=observed_hosp_admissions[
-            :steps_excluding_forecast
-        ],
+        data_observed_hosp_admissions=data_obs_hosp,
         num_warmup=config["n_warmup"],
         num_samples=config["n_iter"],
         nuts_args={
@@ -172,94 +186,85 @@ def run_single_jurisdiction(
         mcmc_args={
             "num_chains": config["n_chains"],
             "progress_bar": True,
-        },  # progress_bar False if use vmap
+        },
     )
-
-    logging.info(f"{jurisdiction}: CFAEPIM model (fitting) ran!")
-
-    cfaepim_MSR_fit.print_summary()
-
-    # prior predictive simulation samples
-    prior_predictive_sim_samples = cfaepim_MSR_fit.prior_predictive(
+    model.print_summary()
+    # simulate data from model
+    prior_predictive_samples = model.prior_predictive(
         n_steps=steps_excluding_forecast,
         numpyro_predictive_args={"num_samples": config["n_iter"]},
         rng_key=jax.random.key(config["seed"]),
     )
-
-    logging.info(f"{jurisdiction}: Prior predictive simulation complete.")
-
-    # posterior predictive simulation samples
-    posterior_predictive_sim_samples = cfaepim_MSR_fit.posterior_predictive(
+    # fit the model to the data
+    posterior_predictive_samples = model.posterior_predictive(
         n_steps=steps_excluding_forecast,
         numpyro_predictive_args={"num_samples": config["n_iter"]},
         rng_key=jax.random.key(config["seed"]),
         data_observed_hosp_admissions=None,
     )
+    return prior_predictive_samples, posterior_predictive_samples, model.mcmc
 
-    # specific draws, might save, but most often don't save spread_draws
-    # rds is rough equivalent of using pickle dump()
-    # sensible use of "pickle"; don't open untrusted pickles from PR
-    # if arviz has fully re-instantiatible objects available, use
-    # use of exp folders within output
-    # output
-    #   exp_01orUUID
-    #      results.txt (could be cfaepim v. PFL)
-    #      some_plots.pdf
-    #   exp_02orUUID
-    #       results.txt (could be PFL v. PFL)
-    #       some_plots.pdf
 
-    logging.info(f"{jurisdiction}: Posterior predictive simulation complete.")
-
-    # posterior predictive forecasting samples
-    if forecasting:
-        cfaepim_MSR_for = pyrenew_flu_light.CFAEPIM_Model(
-            config=config,
-            population=population,
-            week_indices=week_indices,
-            first_week_hosp=first_week_hosp,
-            predictors=predictors,
-        )
-
-        # run the CFAEPIM model (forecasting, required to do so
-        # single `posterior_predictive` gets sames (need self.mcmc)
-        # from passed model);
-        # ISSUE: inv()
-        # PR: sample() + OOP behavior & statefulness
-        cfaepim_MSR_for.mcmc = cfaepim_MSR_fit.mcmc
-
-        posterior_predictive_for_samples = (
-            cfaepim_MSR_for.posterior_predictive(
-                n_steps=total_steps,
-                numpyro_predictive_args={"num_samples": config["n_iter"]},
-                rng_key=jax.random.key(config["seed"]),
-                data_observed_hosp_admissions=None,
+def run_jurisdiction(
+    jurisdiction: str,
+    dataset: pl.DataFrame,
+    args: dict[str, any],
+    config: dict[str, any],
+):
+    # define the model
+    variables_from_data, model = instantiate_pyrenew_flu_light_model(
+        jurisdiction,
+        dataset,
+        args,
+        config,
+    )
+    # run the model, getting the samples
+    priorp, postp, model_mcmc = run_pyrenew_flu_light_model(
+        model,
+        args,
+        config,
+        variables_from_data,
+    )
+    # different approach for forecasting
+    if args.forecast:
+        # reinstaniate model
+        for_variables_from_data, forecasting_model = (
+            instantiate_pyrenew_flu_light_model(
+                jurisdiction, dataset, args, config
             )
         )
-
-        logging.info(
-            f"{jurisdiction}: Posterior predictive forecasts complete."
+        # modify model mcmc object
+        forecasting_model.mcmc = model_mcmc
+        # run the forecasting model
+        for_priorp, for_postp, for_mcmc = run_pyrenew_flu_light_model(
+            model,
+            args,
+            config,
+            variables_from_data,
         )
-
-        return (
-            cfaepim_MSR_for,
-            observed_hosp_admissions,
-            prior_predictive_sim_samples,
-            posterior_predictive_sim_samples,
-            posterior_predictive_for_samples,
-            filtered_data,
+        # define arviz object
+        idata = az.from_numpyro(
+            for_mcmc,
+            posterior_predictive=for_postp,
+            prior=for_priorp,
         )
-    else:
-        posterior_predictive_for_samples = None
-
-    return (
-        cfaepim_MSR_fit,
-        observed_hosp_admissions,
-        prior_predictive_sim_samples,
-        posterior_predictive_sim_samples,
-        posterior_predictive_for_samples,
-        filtered_data,
+        return idata
+    # return arviz object, no forecasting
+    idata = az.from_numpyro(
+        model_mcmc,
+        posterior_predictive=postp,
+        prior=priorp,
     )
+    return idata
+
+
+def forecast_single_jurisdiction():
+    """
+    Runs the ported `cfaepim` model on a single
+    jurisdiction. Pre- and post-observation data
+    for the Rt burn.
+    """
+    pass
 
 
 def main(args):
@@ -296,17 +301,24 @@ def main(args):
         logging.info("Historical NHSN influenza incidence data loaded.")
         # iterate over jurisdictions selected, running the model
         for jurisdiction in args.regions:
+            idata = run_jurisdiction(
+                jurisdiction=jurisdiction,
+                dataset=influenza_hosp_data,
+                args=args,
+                config=config,
+            )
+            print(idata)
 
             # NOTE: subject to change wrt what is returned here
-            (model, obs, prior_p_ss, post_p_ss, post_p_fs, dataset) = (
-                run_single_jurisdiction(
-                    jurisdiction=jurisdiction,
-                    dataset=influenza_hosp_data,
-                    config=config,
-                    forecasting=args.forecast,
-                    n_post_observation_days=args.lookahead,
-                )
-            )
+            # (model, obs, prior_p_ss, post_p_ss, post_p_fs, dataset) = (
+            #     run_single_jurisdiction(
+            #         jurisdiction=jurisdiction,
+            #         dataset=influenza_hosp_data,
+            #         config=config,
+            #         forecasting=args.forecast,
+            #         n_post_observation_days=args.lookahead,
+            #     )
+            # )
 
             # create and save data as arviz inference data object
             # run_output = az.from_numpyro(

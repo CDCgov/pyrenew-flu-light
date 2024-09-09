@@ -36,7 +36,7 @@ def check_output_directories(args: dict[str, any], current_dir: str) -> None:
             current_dir = os.path.dirname(current_dir)
         output_dir = os.path.join(current_dir, "output")
         # make output folder if it does not exist
-        if not os.path.exist(output_dir):
+        if not os.path.exists(output_dir):
             os.makedirs(output_dir)
     # historical mode, using historical data
     if args.historical_data:
@@ -47,11 +47,11 @@ def check_output_directories(args: dict[str, any], current_dir: str) -> None:
             current_dir = os.path.dirname(current_dir)
         output_dir_upper = os.path.join(current_dir, "model_comparison")
         # make model_comparison folder, if it does not exist
-        if not os.path.exist(output_dir_upper):
+        if not os.path.exists(output_dir_upper):
             os.makedirs(output_dir_upper)
         # make output folder in model_comparison folder, if it does not exist
         output_dir_lower = os.path.join(output_dir_upper, "output")
-        if not os.path.exist(output_dir_lower):
+        if not os.path.exists(output_dir_lower):
             os.makedirs(output_dir_lower)
 
 
