@@ -9,18 +9,38 @@ import polars as pl
 import pyrenew_flu_light
 
 
-def process_jurisdictions(value):
-    if value.lower() == "all":
-        return pyrenew_flu_light.JURISDICTIONS
-    elif value.lower().startswith("not:"):
-        exclude = value[4:].split(",")
-        return [
-            state
-            for state in pyrenew_flu_light.JURISDICTIONS
-            if state not in exclude
-        ]
-    else:
-        return value.split(",")
+def process_jurisdictions(value: str) -> list[str]:
+    """
+    Function for customized argparse argument for
+    entering jurisdictions, including avoiding
+    certain jurisdictions via use of "not".
+    """
+    try:
+        if value.lower() == "all":
+            return pyrenew_flu_light.JURISDICTIONS
+        elif value.lower().startswith("not:"):
+            exclude = value[4:].split(",")
+            return [
+                state
+                for state in pyrenew_flu_light.JURISDICTIONS
+                if state not in exclude
+            ]
+        else:
+            return value.split(",")
+    except AttributeError:
+        raise AttributeError("Invalid input: 'value' must be a string.")
+    except NameError:
+        raise NameError(
+            "Ensure 'pyrenew_flu_light' and 'JURISDICTIONS' are imported correctly."
+        )
+    except TypeError:
+        raise TypeError(
+            "Input should be a string. The provided value is not compatible."
+        )
+    except ImportError:
+        raise ImportError("'pyrenew_flu_light' could not be imported.")
+    except Exception as e:
+        raise Exception(f"An unexpected error occurred: {str(e)}")
 
 
 def run_single_jurisdiction(
@@ -245,50 +265,36 @@ def run_single_jurisdiction(
 def main(args):
 
     logging.info("Initiating Pyrenew Flu Light...")
-
     # determine and set number of CPU cores
     numpyro.set_platform("cpu")
     num_cores = os.cpu_count()
     numpyro.set_host_device_count(num_cores - (num_cores - 3))
     logging.info("Number of cores set.")
-
-    # check that output directory exists, if not create
-    # pyrenew_flu_light.ensure_output_directory(args)
-
+    # ensure proper output directory exists, depending on mode
+    current_dir = os.path.abspath(os.path.dirname(__file__))
+    pyrenew_flu_light.check_output_directories(
+        args=args, current_dir=current_dir
+    )
+    # active mode, likely using NSSP, NOTE: not yet implemented
+    if not args.historical_data:
+        pass
     # mode for using historical cfaepim datasets
     if args.historical_data:
-
         # check that historical cfaepim data exists for given reporting date
-        historical_data_directory = (
-            pyrenew_flu_light.assert_historical_data_files_exist(
-                args.reporting_date
-            )
+        data_file_path = pyrenew_flu_light.check_historical_data_files(
+            current_dir=current_dir, reporting_date=args.reporting_date
         )
-
-        # load historical, possibly modified, cfaepim configuration file
-        if args.config_path != "":
-            config = pyrenew_flu_light.load_config(
-                config_path=args.config_path
-            )
-        else:
-            config = pyrenew_flu_light.load_config(
-                config_path=f"../model_comparison/config/params_{args.reporting_date}.toml"
-            )
-
+        # load config file from toml
+        config = pyrenew_flu_light.load_config_file(
+            current_dir=current_dir, reporting_date=args.reporting_date
+        )
         logging.info("Configuration (historical) loaded.")
-
         # load the historical hospitalization data
-        data_path = os.path.join(
-            historical_data_directory, f"{args.reporting_date}_clean_data.tsv"
-        )
         influenza_hosp_data = pyrenew_flu_light.load_saved_data(
-            data_path=data_path
+            data_path=data_file_path, sep="\t"
         )
-
         logging.info("Historical NHSN influenza incidence data loaded.")
-
-        # results = dict([(elt, {}) for elt in args.regions])
-        forecast_days = 28
+        # iterate over jurisdictions selected, running the model
         for jurisdiction in args.regions:
 
             # NOTE: subject to change wrt what is returned here
@@ -298,12 +304,12 @@ def main(args):
                     dataset=influenza_hosp_data,
                     config=config,
                     forecasting=args.forecast,
-                    n_post_observation_days=forecast_days,
+                    n_post_observation_days=args.lookahead,
                 )
             )
 
-            # save data as arviz inference data object
-            # numpyro_data = az.from_numpyro(
+            # create and save data as arviz inference data object
+            # run_output = az.from_numpyro(
             #     mcmc=model.mcmc,
             #     prior=prior_p_ss,
             #     posterior_predictive=post_p_fs,
@@ -322,10 +328,12 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # argparse settings
+
     # e.g. python3 tut_epim_port_msr.py
     # --reporting_date 2024-01-20 --regions all --historical --forecast
     # python3 run.py --reporting_date 2024-01-20 --regions NY --historical --forecast
+
+    # use argparse for command line running
     parser = argparse.ArgumentParser(
         description="Forecast, simulate, and analyze the CFAEPIM model."
     )
@@ -333,7 +341,7 @@ if __name__ == "__main__":
         "--regions",
         type=process_jurisdictions,
         required=True,
-        help="Specify jurisdictions as a comma-separated list. Use 'all' for all states, or 'not:state1,state2' to exclude specific states.",
+        help="Specify jurisdictions as a comma-separated list. Use 'all' for all states, or 'not:state1,state2' to exclude specific states, or 'state1,state2' for specific states.",
     )
     parser.add_argument(
         "--reporting_date",
@@ -352,11 +360,10 @@ if __name__ == "__main__":
         help="Whether to make a forecast.",
     )
     parser.add_argument(
-        "--config_path",
-        type=str,
-        required=False,
-        default="",
-        help="Config path to external config.",
+        "--lookahead",
+        type=int,
+        default=28,
+        help="The number of days to forecast ahead.",
     )
     args = parser.parse_args()
     main(args)

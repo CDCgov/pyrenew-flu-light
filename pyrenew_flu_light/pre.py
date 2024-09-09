@@ -2,9 +2,12 @@
 ETL system for pyrenew-flu-light.
 """
 
-import polars as pl
+import os
 
-from pyrenew_flu_light import check_file_path_valid
+import polars as pl
+import toml
+
+import pyrenew_flu_light
 
 
 def display_data(
@@ -61,6 +64,37 @@ def display_data(
         print(f"Dataset In Use For `cfaepim`:\n{data_to_display}\n")
 
 
+def load_config_file(current_dir: str, reporting_date: str) -> dict[str, any]:
+    """
+    Attempt loading of config toml file.
+    """
+    top_level_dir = "pyrenew-flu-light"
+    # get top-level path regardless of depth of call
+    while not os.path.basename(
+        current_dir
+    ) == top_level_dir and current_dir != os.path.dirname(current_dir):
+        current_dir = os.path.dirname(current_dir)
+    # check that config directory exists
+    config_dir = os.path.join(current_dir, "config")
+    assert os.path.isdir(
+        config_dir
+    ), f"The folder {config_dir} does not exist when it should."
+    # attempt to toml load the config file
+    config_file = os.path.join(config_dir, f"params_{reporting_date}.toml")
+    pyrenew_flu_light.check_file_path_valid(file_path=config_file)
+    try:
+        config = toml.load(config_file)
+    except toml.TomlDecodeError as e:
+        raise ValueError(
+            f"Failed to parse the TOML file at '{config_file}'; error: {e}."
+        )
+    except Exception as e:
+        raise RuntimeError(
+            f"An unexpected error occurred while reading the TOML file: {e}."
+        )
+    return config
+
+
 def load_saved_data(
     data_path: str,
     sep: str = "\t",
@@ -88,7 +122,7 @@ def load_saved_data(
         An unvetted polars dataframe of NHSN
         hospitalization data.
     """
-    check_file_path_valid(file_path=data_path)
+    pyrenew_flu_light.check_file_path_valid(file_path=data_path)
     assert sep in [
         "\t",
         ",",

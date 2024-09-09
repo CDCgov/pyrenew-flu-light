@@ -5,23 +5,11 @@ of certain files for use of pyrenew-flu-light.
 
 import os
 
-import toml
-
 
 def check_file_path_valid(file_path: str) -> None:
     """
     Checks if a file path is valid. Used to check
     the entered data and config paths.
-
-    Parameters
-    ----------
-    file_path : str
-        Path to the file (usually data or config).
-
-    Returns
-    -------
-    None
-        Checks files.
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"The path '{file_path}' does not exist.")
@@ -30,65 +18,84 @@ def check_file_path_valid(file_path: str) -> None:
     return None
 
 
-def load_config(config_path: str) -> dict[str, any]:
+def check_output_directories(args: dict[str, any], current_dir: str) -> None:
     """
-    Attempts to load config toml file.
-
-    Parameters
-    ----------
-    config_path : str
-        The path to the configuration file,
-        read in via argparse.
-
-    Returns
-    -------
-    config
-        A dictionary of variables with
-        associates values for `cfaepim`.
+    Checks for an output folder if in active mode and
+    checks for a model_comparison folder and an output
+    subfolder if in historical mode.
     """
-    check_file_path_valid(file_path=config_path)
-    try:
-        config = toml.load(config_path)
-    except toml.TomlDecodeError as e:
-        raise ValueError(
-            f"Failed to parse the TOML file at '{config_path}'; error: {e}"
-        )
-    except Exception as e:
-        raise RuntimeError(
-            f"An unexpected error occurred while reading the TOML file: {e}"
-        )
-    return config
 
+    top_level_dir = "pyrenew-flu-light"
 
-def ensure_output_directory(args: dict[str, any]):
-    output_directory = "./output/"
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
-    if args.historical_data:
-        output_directory += f"Historical_{args.reporting_date}/"
-        if not os.path.exists(output_directory):
-            os.makedirs(output_directory)
+    # active mode, likely using NSSP
     if not args.historical_data:
-        output_directory += f"{args.reporting_date}/"
-        if not os.path.exists(output_directory):
-            os.makedirs(output_directory)
-    return output_directory
+        # get top-level path regardless of depth of call
+        while not os.path.basename(
+            current_dir
+        ) == top_level_dir and current_dir != os.path.dirname(current_dir):
+            current_dir = os.path.dirname(current_dir)
+        output_dir = os.path.join(current_dir, "output")
+        # make output folder if it does not exist
+        if not os.path.exist(output_dir):
+            os.makedirs(output_dir)
+    # historical mode, using historical data
+    if args.historical_data:
+        # get top-level path regardless of depth of call
+        while not os.path.basename(
+            current_dir
+        ) == top_level_dir and current_dir != os.path.dirname(current_dir):
+            current_dir = os.path.dirname(current_dir)
+        output_dir_upper = os.path.join(current_dir, "model_comparison")
+        # make model_comparison folder, if it does not exist
+        if not os.path.exist(output_dir_upper):
+            os.makedirs(output_dir_upper)
+        # make output folder in model_comparison folder, if it does not exist
+        output_dir_lower = os.path.join(output_dir_upper, "output")
+        if not os.path.exist(output_dir_lower):
+            os.makedirs(output_dir_lower)
 
 
-def assert_historical_data_files_exist(
+def check_historical_data_files(
     reporting_date: str,
+    current_dir: str,
 ):
-    data_directory = f"../model_comparison/data/{reporting_date}/"
-    assert os.path.exists(
-        data_directory
-    ), f"Data directory {data_directory} does not exist."
-    required_files = [
+    """
+    For the historical mode, make sure the model
+    comparison folder exists with data and config
+    subfolders. This is run for each reporting
+    date experiment.
+    """
+
+    top_level_dir = "pyrenew-flu-light"
+
+    # get top-level path regardless of depth of call
+    while not os.path.basename(
+        current_dir
+    ) == top_level_dir and current_dir != os.path.dirname(current_dir):
+        current_dir = os.path.dirname(current_dir)
+    # check if model_comparison folder exists at top-level
+    model_comparison_dir = os.path.join(current_dir, "model_comparison")
+    assert os.path.isdir(
+        model_comparison_dir
+    ), f"The folder {model_comparison_dir} does not exist when it should."
+    # check if data folder exists within model_comparison folder
+    data_dir = os.path.join(model_comparison_dir, "data")
+    assert os.path.isdir(
+        data_dir
+    ), f"The folder {data_dir} does not exist when it should."
+    # check that required files are in the data folder
+    required_data_files = [
         f"{reporting_date}_clean_data.tsv",
         f"{reporting_date}_config.toml",
         f"{reporting_date}-cfarenewal-cfaepimlight.csv",
     ]
-    for file in required_files:
+    for file in required_data_files:
+        data_dir_reporting = os.path.join(data_dir, reporting_date)
         assert os.path.exists(
-            os.path.join(data_directory, file)
-        ), f"Required file {file} does not exist in {data_directory}."
-    return data_directory
+            data_dir_reporting
+        ), f"Required file {file} does not exist in {data_dir_reporting}."
+    # return the data directory for the reporting date
+    data_file_path = os.path.join(
+        data_dir_reporting, f"{reporting_date}_clean_data.tsv"
+    )
+    return data_file_path

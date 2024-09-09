@@ -1,18 +1,26 @@
+"""
+Aggregate relevant classes, functions, and
+module-level constants for running
+pyrenew-flu-light.
+"""
+
+from datetime import datetime as dt
+
+import pytz
 from checks import (
-    assert_historical_data_files_exist,
     check_file_path_valid,
-    ensure_output_directory,
-    load_config,
+    check_historical_data_files,
+    check_output_directories,
 )
 from comp_inf import CFAEPIM_Infections
 from comp_obs import CFAEPIM_Observation
 from comp_tran import CFAEPIM_Rt
 from model import CFAEPIM_Model
 from pad import add_post_observation_period, add_pre_observation_period
-from plot import plot_hdi_arviz_for, plot_lm_arviz_fit
 from post import generate_draws_from_samples
-from pre import load_saved_data
+from pre import load_config_file, load_saved_data
 
+# the 50 states in the United States
 JURISDICTIONS = [
     "AK",
     "AL",
@@ -70,20 +78,29 @@ JURISDICTIONS = [
     "WY",
 ]
 
+
+# holidays as model covariates
+HOLIDAYS = ["2023-11-23", "2023-12-25", "2023-12-31", "2024-01-01"]
+
+
+# current ISO 8601 formatted EST timezone date
+est = pytz.timezone("US/Eastern")
+CURRENT_DATE = dt.now(est).strftime("%Y-%m-%d")
+
 __all__ = [
+    "JURISDICTIONS",
+    "CURRENT_DATE",
+    "HOLIDAYS",
     "CFAEPIM_Infections",
     "CFAEPIM_Observation",
     "CFAEPIM_Rt",
     "CFAEPIM_Model",
     "add_post_observation_period",
     "add_pre_observation_period",
-    "plot_hdi_arviz_for",
-    "plot_lm_arviz_fit",
-    "JURISDICTIONS",
-    "assert_historical_data_files_exist",
     "check_file_path_valid",
-    "ensure_output_directory",
-    "load_config",
+    "check_historical_data_files",
+    "check_output_directories",
+    "load_config_file",
     "load_saved_data",
     "generate_draws_from_samples",
 ]

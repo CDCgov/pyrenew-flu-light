@@ -7,6 +7,8 @@ historical observations.
 import numpy as np
 import polars as pl
 
+# arviz idata to tidydraws
+
 
 def generate_draws_from_samples(
     post_p_fs: dict[str, list[float]],

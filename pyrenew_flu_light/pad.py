@@ -1,8 +1,14 @@
+"""
+Functions to handle tacking on data for the
+non-observation period and also data for the
+post-observation period (used in forecasting).
+"""
+
 from datetime import datetime, timedelta
 
 import polars as pl
 
-HOLIDAYS = ["2023-11-23", "2023-12-25", "2023-12-31", "2024-01-01"]
+import pyrenew_flu_light
 
 
 def add_post_observation_period(
@@ -56,7 +62,10 @@ def add_post_observation_period(
     weeks = [week if week <= 52 else week - 52 for week in weeks]
 
     # calculate holiday series
-    holidays = [datetime.strptime(elt, "%Y-%m-%d") for elt in HOLIDAYS]
+    holidays = [
+        datetime.strptime(elt, "%Y-%m-%d")
+        for elt in pyrenew_flu_light.HOLIDAYS
+    ]
     holidays_values = [date in holidays for date in post_observation_dates]
     post_holidays = [holiday + timedelta(days=1) for holiday in holidays]
     post_holiday_values = [
@@ -130,7 +139,10 @@ def add_pre_observation_period(
     epiweeks.reverse()
 
     # calculate holiday series
-    holidays = [datetime.strptime(elt, "%Y-%m-%d") for elt in HOLIDAYS]
+    holidays = [
+        datetime.strptime(elt, "%Y-%m-%d")
+        for elt in pyrenew_flu_light.HOLIDAYS
+    ]
     holidays_values = [date in holidays for date in pre_observation_dates]
     post_holidays = [holiday + timedelta(days=1) for holiday in holidays]
     post_holiday_values = [
