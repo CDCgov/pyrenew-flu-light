@@ -96,6 +96,9 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# Python Arviz .nc files for experimental output
+*.nc
+
 # Translations
 *.mo
 *.pot

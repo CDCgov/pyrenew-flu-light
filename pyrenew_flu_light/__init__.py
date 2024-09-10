@@ -18,7 +18,12 @@ from comp_obs import CFAEPIM_Observation
 from comp_tran import CFAEPIM_Rt
 from model import CFAEPIM_Model
 from pad import add_post_observation_period, add_pre_observation_period
-from post import generate_draws_from_samples
+from post import (
+    get_vars_from_idata_object,
+    read_idata_from_netcdf,
+    write_idata_netcdf_to_csv,
+    write_idata_to_netcdf,
+)
 from pre import load_config_file, load_saved_data, save_experiment_information
 from run import (
     get_samples_from_ran_model,
@@ -118,4 +123,8 @@ __all__ = [
     "get_samples_from_ran_model",
     "run_pyrenew_flu_light_model",
     "run_jurisdiction",
+    "get_vars_from_idata_object",
+    "read_idata_from_netcdf",
+    "write_idata_netcdf_to_csv",
+    "write_idata_to_netcdf",
 ]

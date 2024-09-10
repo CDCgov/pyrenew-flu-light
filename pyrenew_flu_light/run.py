@@ -1,7 +1,7 @@
 """
 File to run pyrenew-flu-light from the
 command line. Example, for running:
-python3 run.py --reporting_date 2024-01-20 --regions NY --historical
+python3 run.py --reporting_date 2024-01-20 --regions NY --historical --forecast --exp_name test
 """
 
 import argparse
@@ -110,6 +110,8 @@ def load_data_variables_for_model(
     observed_hosp_admissions = (
         filtered_data.select(pl.col("hosp")).to_numpy().flatten()
     )
+    # get dates
+    dates = filtered_data.select(pl.col("date")).to_numpy().flatten()
     # output dictionary
     out = {
         "population": population,
@@ -118,6 +120,7 @@ def load_data_variables_for_model(
         "predictors": predictors,
         "observations": observed_hosp_admissions,
         "total_steps": week_indices.size,
+        "dates": dates,
     }
     return out
 
@@ -252,7 +255,7 @@ def run_jurisdiction(
             posterior_predictive=for_postp,
             prior=for_priorp,
         )
-        return idata
+        return idata, data_obs_hosp
     # get samples for non-forecasting model
     priorp, postp = get_samples_from_ran_model(
         model, config, steps=steps_excluding_forecast, data_obs_hosp=None
@@ -262,7 +265,7 @@ def run_jurisdiction(
         posterior_predictive=postp,
         prior=priorp,
     )
-    return idata
+    return idata, data_obs_hosp
 
 
 def main(args):
@@ -313,29 +316,34 @@ def main(args):
             command_line_args=" ".join(sys.argv),
         )
         # iterate over jurisdictions selected, running the model
+        obs_data_by_jurisdiction = {}
+        obs_data_name = f"Observations_{args.reporting_date}.csv"
+        obs_data_path = os.path.join(experiments_dir, obs_data_name)
         for jurisdiction in args.regions:
             # name for saving jurisdiction
-            save_name = f"{jurisdiction}_{args.reporting_date}.csv"
-            save_path = os.path.join(samples_dir, save_name)
+            idata_save_name = f"{jurisdiction}_{args.reporting_date}.nc"
+            idata_save_path = os.path.join(samples_dir, idata_save_name)
             # check if the file does not already exist
-            if not os.path.exists(save_path):
-                # retrieve fit or forecast
-                idata = run_jurisdiction(
-                    jurisdiction=jurisdiction,
-                    dataset=influenza_hosp_data,
-                    args=args,
-                    config=config,
-                )
-                # convert to dataframe and then to csv
-                idata.to_dataframe().to_csv(save_path, index=False)
+            # if not os.path.exists(save_path):
+            # retrieve fit or forecast and observed data
+            idata, data_obs_hosp = run_jurisdiction(
+                jurisdiction=jurisdiction,
+                dataset=influenza_hosp_data,
+                args=args,
+                config=config,
+            )
+            # save idata as netcdf object
+            pyrenew_flu_light.write_idata_to_netcdf(
+                idata=idata, file_path=idata_save_path
+            )
+            # add observed data for jurisdiction to dictionary
+            obs_data_by_jurisdiction[jurisdiction] = data_obs_hosp
+        # create df of observations and save
+        obs_data = pl.DataFrame(obs_data_by_jurisdiction)
+        obs_data.write_csv(obs_data_path)
 
 
 if __name__ == "__main__":
-
-    # e.g. python3 tut_epim_port_msr.py
-    # --reporting_date 2024-01-20 --regions all --historical --forecast
-    # python3 run.py --reporting_date 2024-01-20 --regions NY --historical --forecast
-
     # use argparse for command line running
     parser = argparse.ArgumentParser(
         description="Forecast, simulate, and analyze the CFAEPIM model."
