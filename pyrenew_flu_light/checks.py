@@ -34,8 +34,9 @@ def check_experiments(args: dict[str, any], current_dir: str) -> None:
     # no need to check these dirs since check_historical_data_files
     # already does so
     model_comparison_dir = os.path.join(current_dir, "model_comparison")
+    output_dir = os.path.join(model_comparison_dir, "output")
     # define name of current experiment
-    experiments_dir = os.path.join(model_comparison_dir, args.exp_name)
+    experiments_dir = os.path.join(output_dir, args.exp_name)
     # check if experiments folder exists, create if not
     os.makedirs(experiments_dir, exist_ok=True)
     # create samples folder
