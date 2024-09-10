@@ -8,6 +8,7 @@ from datetime import datetime as dt
 
 import pytz
 from checks import (
+    check_experiments,
     check_file_path_valid,
     check_historical_data_files,
     check_output_directories,
@@ -18,7 +19,7 @@ from comp_tran import CFAEPIM_Rt
 from model import CFAEPIM_Model
 from pad import add_post_observation_period, add_pre_observation_period
 from post import generate_draws_from_samples
-from pre import load_config_file, load_saved_data
+from pre import load_config_file, load_saved_data, save_experiment_information
 from run import (
     get_samples_from_ran_model,
     instantiate_model,
@@ -107,8 +108,10 @@ __all__ = [
     "check_file_path_valid",
     "check_historical_data_files",
     "check_output_directories",
+    "check_experiments",
     "load_config_file",
     "load_saved_data",
+    "save_experiment_information",
     "generate_draws_from_samples",
     "load_data_variables_for_model",
     "instantiate_model",

@@ -7,6 +7,7 @@ python3 run.py --reporting_date 2024-01-20 --regions NY --historical
 import argparse
 import logging
 import os
+import sys
 
 import arviz as az
 import jax
@@ -282,6 +283,10 @@ def main(args):
         pass
     # mode for using historical cfaepim datasets
     if args.historical_data:
+        # make sure an experiment name exists
+        assert isinstance(
+            args.exp_name, str
+        ), "A short experiment name must be provided to use the historical mode."
         # check that historical cfaepim data exists for given reporting date
         data_file_path = pyrenew_flu_light.check_historical_data_files(
             current_dir=current_dir, reporting_date=args.reporting_date
@@ -296,18 +301,33 @@ def main(args):
             data_path=data_file_path, sep="\t"
         )
         logging.info("Historical NHSN influenza incidence data loaded.")
-        # create new experiment for each iteration of comparison
-
+        # create new experiment or check it is for comparison
+        experiments_dir, samples_dir = pyrenew_flu_light.check_experiments(
+            args=args, current_dir=current_dir
+        )
+        # save data relevant data and information to experiment folder
+        pyrenew_flu_light.save_experiment_information(
+            args=args,
+            config=config,
+            experiments_dir=experiments_dir,
+            command_line_args=" ".join(sys.argv),
+        )
         # iterate over jurisdictions selected, running the model
         for jurisdiction in args.regions:
-            # check if jurisdiction file already exists
-            idata = run_jurisdiction(
-                jurisdiction=jurisdiction,
-                dataset=influenza_hosp_data,
-                args=args,
-                config=config,
-            )
-            print(idata.posterior)
+            # name for saving jurisdiction
+            save_name = f"{jurisdiction}_{args.reporting_date}.csv"
+            save_path = os.path.join(samples_dir, save_name)
+            # check if the file does not already exist
+            if not os.path.exists(save_path):
+                # retrieve fit or forecast
+                idata = run_jurisdiction(
+                    jurisdiction=jurisdiction,
+                    dataset=influenza_hosp_data,
+                    args=args,
+                    config=config,
+                )
+                # convert to dataframe and then to csv
+                idata.to_dataframe().to_csv(save_path, index=False)
 
 
 if __name__ == "__main__":
@@ -351,7 +371,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--exp_name",
         type=str,
-        default="test",
         help="The name of a given experiment.",
     )
     args = parser.parse_args()

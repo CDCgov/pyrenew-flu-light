@@ -2,6 +2,7 @@
 ETL system for pyrenew-flu-light.
 """
 
+import json
 import os
 
 import polars as pl
@@ -62,6 +63,37 @@ def display_data(
     pl.Config.set_tbl_hide_column_data_types(True)
     with pl.Config(tbl_rows=n_row_count, tbl_cols=n_col_count):
         print(f"Dataset In Use For `cfaepim`:\n{data_to_display}\n")
+
+
+def save_experiment_information(
+    args: dict[str, any],
+    config: dict[str, any],
+    experiments_dir: str,
+    command_line_args: str,
+):
+    """
+    Creates pre-processing (informational) content
+    of the experiments folder for a particular
+    run. This content includes the configuration
+    settings and information on the experiment.
+    """
+
+    info_path = os.path.join(experiments_dir, "information.txt")
+    with open(info_path, "w") as f:
+        # store name of experiment
+        f.write(f"NAME: {args.exp_name}\n")
+        # store current date
+        f.write(f"DATE: {pyrenew_flu_light.CURRENT_DATE}\n")
+        # store command line that produced the experiment
+        f.write(f"ARGS: {command_line_args}")
+        f.close()
+    # store the config file as a json
+    config_path = os.path.join(
+        experiments_dir, f"params_{args.reporting_date}.json"
+    )
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=4)
+        f.close()
 
 
 def load_config_file(current_dir: str, reporting_date: str) -> dict[str, any]:

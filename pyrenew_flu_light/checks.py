@@ -18,6 +18,32 @@ def check_file_path_valid(file_path: str) -> None:
     return None
 
 
+def check_experiments(args: dict[str, any], current_dir: str) -> None:
+    """
+    Finds the experiments folder for the model
+    comparison output using historical data and
+    creates the correct folder.
+    """
+    top_level_dir = "pyrenew-flu-light"
+    # get top-level path regardless of depth of call
+    while not os.path.basename(
+        current_dir
+    ) == top_level_dir and current_dir != os.path.dirname(current_dir):
+        current_dir = os.path.dirname(current_dir)
+    # look in model comparison, output dir for experiments
+    # no need to check these dirs since check_historical_data_files
+    # already does so
+    model_comparison_dir = os.path.join(current_dir, "model_comparison")
+    # define name of current experiment
+    experiments_dir = os.path.join(model_comparison_dir, args.exp_name)
+    # check if experiments folder exists, create if not
+    os.makedirs(experiments_dir, exist_ok=True)
+    # create samples folder
+    samples_dir = os.path.join(experiments_dir, "samples")
+    os.makedirs(samples_dir, exist_ok=True)
+    return experiments_dir, samples_dir
+
+
 def check_output_directories(args: dict[str, any], current_dir: str) -> None:
     """
     Checks for an output folder if in active mode and
@@ -33,10 +59,9 @@ def check_output_directories(args: dict[str, any], current_dir: str) -> None:
             current_dir
         ) == top_level_dir and current_dir != os.path.dirname(current_dir):
             current_dir = os.path.dirname(current_dir)
-        output_dir = os.path.join(current_dir, "output")
+        active_output_dir = os.path.join(current_dir, "output")
         # make output folder if it does not exist
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        os.makedirs(active_output_dir, exist_ok=True)
     # historical mode, using historical data
     if args.historical_data:
         # get top-level path regardless of depth of call
@@ -44,14 +69,12 @@ def check_output_directories(args: dict[str, any], current_dir: str) -> None:
             current_dir
         ) == top_level_dir and current_dir != os.path.dirname(current_dir):
             current_dir = os.path.dirname(current_dir)
-        output_dir_upper = os.path.join(current_dir, "model_comparison")
+        hist_output_dir_upper = os.path.join(current_dir, "model_comparison")
         # make model_comparison folder, if it does not exist
-        if not os.path.exists(output_dir_upper):
-            os.makedirs(output_dir_upper)
+        os.makedirs(hist_output_dir_upper, exist_ok=True)
         # make output folder in model_comparison folder, if it does not exist
-        output_dir_lower = os.path.join(output_dir_upper, "output")
-        if not os.path.exists(output_dir_lower):
-            os.makedirs(output_dir_lower)
+        hist_output_dir_lower = os.path.join(hist_output_dir_upper, "output")
+        os.makedirs(hist_output_dir_lower, exist_ok=True)
 
 
 def check_historical_data_files(

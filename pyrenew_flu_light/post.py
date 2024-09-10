@@ -4,10 +4,28 @@ posterior predictive distributions based on
 historical observations.
 """
 
+import arviz as az
 import numpy as np
 import polars as pl
 
-# arviz idata to tidydraws
+
+def read_idata_from_netcdf(file_path: str) -> az.InferenceData:
+    return az.from_netcdf(file_path)
+
+
+def write_idata_netcdf_to_csv(idata: az.InferenceData, csv_path: str) -> None:
+    df = idata.to_dataframe()
+    df.to_csv(csv_path, index=False)
+
+
+def get_vars_from_idata_object(
+    idata: az.InferenceData, var_names: list[str]
+) -> az.InferenceData:
+    return az.extract(idata, var_names=var_names)
+
+
+def write_idata_to_netcdf(idata: az.InferenceData, file_path: str) -> None:
+    idata.to_netcdf(file_path)
 
 
 def generate_draws_from_samples(
