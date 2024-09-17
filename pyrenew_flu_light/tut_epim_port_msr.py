@@ -199,7 +199,7 @@ def check_file_path_valid(file_path: str) -> None:
     return None
 
 
-def load_data(
+def load_saved_data(
     data_path: str,
     sep: str = "\t",
     schema_length: int = 10000,
@@ -1755,7 +1755,7 @@ def main(args):
         data_path = os.path.join(
             historical_data_directory, f"{args.reporting_date}_clean_data.tsv"
         )
-        influenza_hosp_data = load_data(data_path=data_path)
+        influenza_hosp_data = load_saved_data(data_path=data_path)
         logging.info("Incidence data (historical) loaded.")
         _, cols = influenza_hosp_data.shape
         # display_data(

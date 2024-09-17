@@ -36,7 +36,6 @@ class CFAEPIM_Infections(RandomVariable):
         susceptibility_prior: numpyro.distributions,
     ):
         logging.info("Initializing CFAEPIM_Infections")
-
         self.I0 = I0
         self.susceptibility_prior = susceptibility_prior
 
@@ -61,7 +60,6 @@ class CFAEPIM_Infections(RandomVariable):
             raise TypeError(
                 f"Initial infections (I0) must be an array-like structure; was type {type(I0)}"
             )
-
         if not isinstance(susceptibility_prior, dist.Distribution):
             raise TypeError(
                 f"susceptibility_prior must be a numpyro distribution; was type {type(susceptibility_prior)}"
@@ -112,12 +110,9 @@ class CFAEPIM_Infections(RandomVariable):
         # get initial infections
         I0_samples = self.I0.sample()
         I0 = I0_samples[0].value
-
         logging.debug(f"I0 samples: {I0}")
-
         # reverse generation interval (recency)
         gen_int_rev = jnp.flip(gen_int)
-
         if I0.size < gen_int.size:
             raise ValueError(
                 "Initial infections vector must be at least as long as "
@@ -126,44 +121,34 @@ class CFAEPIM_Infections(RandomVariable):
                 f"generation interval length: {gen_int.size}."
             )
         recent_I0 = I0[-gen_int_rev.size :]
-
         # sample the initial susceptible population proportion S_{v-1} / P from prior
         init_S_proportion = numpyro.sample(
             "S_v_minus_1_over_P", self.susceptibility_prior
         )
         logging.debug(f"Initial susceptible proportion: {init_S_proportion}")
-
         # calculate initial susceptible population S_{v-1}
         init_S = init_S_proportion * P
 
         def update_infections(carry, Rt):
             S_t, I_recent = carry
-
             # compute raw infections
             i_raw_t = Rt * jnp.dot(I_recent, gen_int_rev)
-
             # apply the logistic susceptibility adjustment to a potential new incidence
             i_t = logistic_susceptibility_adjustment(
                 I_raw_t=i_raw_t, frac_susceptible=S_t / P, n_population=P
             )
-
             # update susceptible population
             S_t -= i_t
-
             # update infections
             I_recent = jnp.concatenate([I_recent[:-1], jnp.array([i_t])])
-
             return (S_t, I_recent), i_t
 
         # initial carry state
         init_carry = (init_S, recent_I0)
-
         # scan to iterate over time steps and update infections
         (all_S_t, _), all_I_t = numpyro.contrib.control_flow.scan(
             update_infections, init_carry, Rt
         )
-
         logging.debug(f"All infections: {all_I_t}")
         logging.debug(f"All susceptibles: {all_S_t}")
-
         return all_I_t, all_S_t

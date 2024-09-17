@@ -79,21 +79,17 @@ class CFAEPIM_Model(Model):
         self.week_indices = week_indices
         self.first_week_hosp = first_week_hosp
         self.predictors = predictors
-
         self.config = config
         for key, value in config.items():
             setattr(self, key, value)
-
         # transmission: generation time distribution
         self.pmf_array = jnp.array(self.generation_time_dist)
         self.gen_int = DeterministicPMF(name="gen_int", value=self.pmf_array)
         # update: record in sample ought to be False by default
-
         # transmission: prior for RW intercept
         self.intercept_RW_prior = dist.Normal(
             self.rt_intercept_prior_mode, self.rt_intercept_prior_scale
         )
-
         # transmission: Rt process
         self.Rt_process = CFAEPIM_Rt(
             intercept_RW_prior=self.intercept_RW_prior,
@@ -101,12 +97,10 @@ class CFAEPIM_Model(Model):
             gamma_RW_prior_scale=self.weekly_rw_prior_scale,
             week_indices=self.week_indices,
         )
-
         # infections: get value rate for infection seeding (initialization)
         self.mean_inf_val = (
             self.inf_model_prior_infections_per_capita * self.population
         ) + (self.first_week_hosp / (self.ihr_intercept_prior_mode * 7))
-
         # infections: initial infections
         self.I0 = InfectionInitializationProcess(
             name="I0_initialization",
@@ -121,7 +115,6 @@ class CFAEPIM_Model(Model):
             ),
             t_unit=1,
         )
-
         # infections: susceptibility depletion prior
         # update: truncated Normal needed here, done
         # "under the hood" in Epidemia, use Beta for the
@@ -142,23 +135,19 @@ class CFAEPIM_Model(Model):
         #     self.susceptible_fraction_prior_scale,
         #     low=0.0,
         # )
-
         # infections component
         self.infections = CFAEPIM_Infections(
             I0=self.I0, susceptibility_prior=self.susceptibility_prior
         )
-
         # observations: negative binomial concentration prior
         self.nb_concentration_prior = dist.Normal(
             self.reciprocal_dispersion_prior_mode,
             self.reciprocal_dispersion_prior_scale,
         )
-
         # observations: instantaneous ascertainment rate prior
         self.alpha_prior_dist = dist.Normal(
             self.ihr_intercept_prior_mode, self.ihr_intercept_prior_scale
         )
-
         # observations: prior on covariate coefficients
         self.coefficient_priors = dist.Normal(
             loc=jnp.array(
@@ -178,7 +167,6 @@ class CFAEPIM_Model(Model):
                 ]
             ),
         )
-
         # observations component
         self.obs_process = CFAEPIM_Observation(
             predictors=self.predictors,
