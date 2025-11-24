@@ -25,13 +25,13 @@ repos:
         args: ['--profile', 'black',
                '--line-length', '79']
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.5
+    rev: v0.14.6
     hooks:
       - id: ruff
         args: ['--ignore=E741', '--ignore=E731', '--fix']
 ################################################################################
 -   repo: https://github.com/rhysd/actionlint
-    rev: v1.7.8
+    rev: v1.7.9
     hooks:
     -   id: actionlint
 ################################################################################
