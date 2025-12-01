@@ -25,7 +25,7 @@ repos:
         args: ['--profile', 'black',
                '--line-length', '79']
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.6
+    rev: v0.14.7
     hooks:
       - id: ruff
         args: ['--ignore=E741', '--ignore=E731', '--fix']
