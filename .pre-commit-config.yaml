@@ -13,19 +13,19 @@ repos:
     -   id: trailing-whitespace
 ################################################################################
 -   repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 26.3.1
+    rev: 26.5.0
     hooks:
     -   id: black-jupyter
         args: ['--line-length', '79']
         language_version: python3
 -   repo: https://github.com/PyCQA/isort
-    rev: 8.0.1
+    rev: 9.0.0a3
     hooks:
     -   id: isort
         args: ['--profile', 'black',
                '--line-length', '79']
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.8
+    rev: v0.15.13
     hooks:
       - id: ruff
         args: ['--ignore=E741', '--ignore=E731', '--fix']
@@ -48,7 +48,7 @@ repos:
         args: ["--force-exclude"]
 ################################################################################
 -   repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.13.9
+    rev: v4.16.2
     hooks:
     -   id: commitizen
 ################################################################################
